@@ -5,9 +5,97 @@ from TimeSeriesEncoder import *
 def test_mock():
     assert True == True
 
-def test_basic_ts():
+def test_base_64():
+    sample = get_sample()
+    print(sample)
+    print()
+
+    from copy import deepcopy
+    sorted_test = deepcopy(sample['Values'])
+    unsorted_test = deepcopy(sample['Values'])
+
+    sorted_test.sort(key = lambda x: x['UTC'])
+    tse = TimeSeriesEncoder(timeseries = sorted_test)
+    encoding = tse.encode(sorted_test)
+    decoding = tse.decode(encoding)
+    for i, k in enumerate(sorted_test):
+        assert k == decoding[i]
+
+    sample['Values'] = encoding
+    print(sample)
+    print()
+
+    tse = TimeSeriesEncoder(timeseries = unsorted_test)
+    encoding = tse.encode(unsorted_test)
+    decoding = tse.decode(encoding)
+    for i, k in enumerate(unsorted_test):
+        assert k == decoding[i]
+
+    sample['Values'] = encoding
+    print(sample)
+
+def test_base_16():
+    sample = get_sample()
+    print(sample)
+    print()
+
+    from copy import deepcopy
+    sorted_test = deepcopy(sample['Values'])
+    unsorted_test = deepcopy(sample['Values'])
+
+    sorted_test.sort(key = lambda x: x['UTC'])
+    tse = TimeSeriesEncoder(timeseries = sorted_test, encoding_size = 16)
+    encoding = tse.encode(sorted_test)
+    decoding = tse.decode(encoding)
+    for i, k in enumerate(sorted_test):
+        assert k == decoding[i]
+
+    sample['Values'] = encoding
+    print(sample)
+    print()
+
+    tse = TimeSeriesEncoder(timeseries = unsorted_test, encoding_size = 16)
+    encoding = tse.encode(unsorted_test)
+    decoding = tse.decode(encoding)
+    for i, k in enumerate(unsorted_test):
+        assert k == decoding[i]
+
+    sample['Values'] = encoding
+    print(sample)
+
+
+def test_base_90():
+    sample = get_sample()
+    print(sample)
+    print()
+
+    from copy import deepcopy
+    sorted_test = deepcopy(sample['Values'])
+    unsorted_test = deepcopy(sample['Values'])
+
+    sorted_test.sort(key = lambda x: x['UTC'])
+    tse = TimeSeriesEncoder(timeseries = sorted_test, encoding_size = 90)
+    encoding = tse.encode(sorted_test)
+    decoding = tse.decode(encoding)
+    for i, k in enumerate(sorted_test):
+        assert k == decoding[i]
+
+    sample['Values'] = encoding
+    print(sample)
+    print()
+
+    tse = TimeSeriesEncoder(timeseries = unsorted_test, encoding_size = 90)
+    encoding = tse.encode(unsorted_test)
+    decoding = tse.decode(encoding)
+    for i, k in enumerate(unsorted_test):
+        assert k == decoding[i]
+
+    sample['Values'] = encoding
+    print(sample)
+
+def get_sample():
     import json
-    sample = json.loads('''{
+    return json.loads('''{
                     "AttributeName": "relative_humidity_100m:p",
                     "AttributeUnitOfMeasure": "%",
                     "AttributeDescription": "relative humidity at 100m [%]",
@@ -587,30 +675,3 @@ def test_basic_ts():
                         }
                     ]
                 }''')
-
-    print(sample)
-    print()
-
-    from copy import deepcopy
-    sorted_test = deepcopy(sample['Values'])
-    unsorted_test = deepcopy(sample['Values'])
-
-    sorted_test.sort(key = lambda x: x['UTC'])
-    tse = TimeSeriesEncoder(timeseries = sorted_test)
-    encoding = tse.encode(sorted_test)
-    decoding = tse.decode(encoding)
-    for i, k in enumerate(sorted_test):
-        assert k == decoding[i]
-
-    sample['Values'] = encoding
-    print(sample)
-    print()
-
-    tse = TimeSeriesEncoder(timeseries = unsorted_test)
-    encoding = tse.encode(unsorted_test)
-    decoding = tse.decode(encoding)
-    for i, k in enumerate(unsorted_test):
-        assert k == decoding[i]
-
-    sample['Values'] = encoding
-    print(sample)

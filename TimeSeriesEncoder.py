@@ -23,9 +23,19 @@ def precision_and_scale(x):
 class TimeSeriesEncoder:
     regular = False
 
-    def __init__(self, timeseries):
+    def __init__(self, timeseries, encoding_size = 64):
         # Save raw timeseries
         self.timeseries = timeseries
+
+        # Check encoding size
+        if encoding_size == 16:
+            character_set = Base64NumericEncoder.get_base_16()
+        elif encoding_size == 64:
+            character_set = Base64NumericEncoder.get_base_64()
+        elif encoding_size == 90:
+            character_set = Base64NumericEncoder.get_base_90()
+        else:
+            raise ValueError(f'Unsupported encoding size: {encoding_size}, currently we only support base 16, 64, and 90.')
 
         # Create the optimal encoder
         self.np_timeseries = self.get_np_timeseries(timeseries)
@@ -44,7 +54,7 @@ class TimeSeriesEncoder:
 
             timebitsize = 0
             while largest_offset >= 1:
-                largest_offset /= 64
+                largest_offset /= encoding_size
                 timebitsize += 1
 
         # Determine value bounds
@@ -56,27 +66,30 @@ class TimeSeriesEncoder:
         precision = np.vectorize(precision_and_scale)
         _, values = precision(values)
         maximum_precision = np.max(values)
-    
-        signed = True
-        if min_value > 0:
-            signed = False
+
+        max_value = max(abs(max_value), abs(min_value))
+
+        signed = False
+        if min_value < 0:
+            signed = True
+            max_value *= 2
 
         if maximum_precision == 0:
             numeric_type = int
         else:
             numeric_type = float
+            max_value *= 10 ** maximum_precision
 
         valuebitsize = 0
-        max_value = max(abs(max_value), abs(min_value))
         while max_value >= 1:
-            max_value /= 64
+            max_value /= encoding_size
             valuebitsize += 1
 
         # Create encoders
         if self.regular == False:
-            self.timeEncoder = Base64NumericEncoder(encoding_depth = timebitsize, signed=False, numeric_type=int)
+            self.timeEncoder = Base64NumericEncoder(encoding_depth = timebitsize, signed=False, numeric_type=int, character_set = character_set)
         
-        self.encoder = Base64NumericEncoder(encoding_depth = valuebitsize, signed=signed, numeric_type=numeric_type, float_precision=maximum_precision)
+        self.encoder = Base64NumericEncoder(encoding_depth = valuebitsize, signed=signed, numeric_type=numeric_type, float_precision=maximum_precision, character_set = character_set)
 
         # Save raw timeseries
         self.timeseries = timeseries

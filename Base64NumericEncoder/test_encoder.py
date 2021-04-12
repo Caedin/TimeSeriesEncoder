@@ -1,9 +1,12 @@
 from Base64NumericEncoder import Base64NumericEncoder
 import pytest
 
-def runner(encoder):
+def runner(encoder, verbose=False):
     c = encoder.min_value
     while c < encoder.max_value:
+        if verbose:
+            print(f'Input: {c}, Encoded: {encoder.encode(c)}, Decoded: {encoder.decode(encoder.encode(c))}')
+
         if encoder.numeric_type == float:
             assert c == encoder.decode(encoder.encode(c))
             c += 10 ** (-1 * encoder.float_precision)
@@ -84,3 +87,47 @@ def test_all():
             runner(encoder)
             encoder = Base64NumericEncoder(signed = True, encoding_depth = depth+1, numeric_type = float, float_precision = prec+1)
             runner(encoder)
+
+def test_base16():
+    character_set = [Base64NumericEncoder.get_base_16()
+    encoder = Base64NumericEncoder(signed = True, encoding_depth = 3, numeric_type = int, character_set = character_set)
+    runner(encoder)
+    encoder = Base64NumericEncoder(signed = True, encoding_depth = 1, numeric_type = int, character_set = character_set)
+    runner(encoder)
+
+    encoder = Base64NumericEncoder(signed = False, encoding_depth = 1, numeric_type = int, character_set = character_set)
+    runner(encoder)
+
+    encoder = Base64NumericEncoder(signed = True, encoding_depth = 1, numeric_type = float, float_precision = 1, character_set = character_set)
+    runner(encoder)
+
+    encoder = Base64NumericEncoder(signed = False, encoding_depth = 1, numeric_type = float, float_precision = 1, character_set = character_set)
+    runner(encoder)
+
+    encoder = Base64NumericEncoder(signed = True, encoding_depth = 1, numeric_type = float, float_precision = 2, character_set = character_set)
+    runner(encoder)
+
+    encoder = Base64NumericEncoder(signed = False, encoding_depth = 1, numeric_type = float, float_precision = 2, character_set = character_set)
+    runner(encoder)
+
+def test_base90():
+    character_set = Base64NumericEncoder.get_base_90()
+    encoder = Base64NumericEncoder(signed = True, encoding_depth = 3, numeric_type = int, character_set = character_set)
+    runner(encoder, verbose=True)
+    encoder = Base64NumericEncoder(signed = True, encoding_depth = 1, numeric_type = int, character_set = character_set)
+    runner(encoder)
+
+    encoder = Base64NumericEncoder(signed = False, encoding_depth = 1, numeric_type = int, character_set = character_set)
+    runner(encoder)
+
+    encoder = Base64NumericEncoder(signed = True, encoding_depth = 1, numeric_type = float, float_precision = 1, character_set = character_set)
+    runner(encoder)
+
+    encoder = Base64NumericEncoder(signed = False, encoding_depth = 1, numeric_type = float, float_precision = 1, character_set = character_set)
+    runner(encoder)
+
+    encoder = Base64NumericEncoder(signed = True, encoding_depth = 1, numeric_type = float, float_precision = 2, character_set = character_set)
+    runner(encoder)
+
+    encoder = Base64NumericEncoder(signed = False, encoding_depth = 1, numeric_type = float, float_precision = 2, character_set = character_set)
+    runner(encoder)
