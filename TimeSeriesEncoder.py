@@ -23,76 +23,179 @@ def precision_and_scale(x):
 class TimeSeriesEncoder:
     regular = False
 
-    def __init__(self, timeseries, encoding_size = 64):
-        # Save raw timeseries
-        self.timeseries = timeseries
-
+    @staticmethod
+    def get_character_set(encoding_size):
         # Check encoding size
         if encoding_size == 16:
             character_set = Base64NumericEncoder.get_base_16()
         elif encoding_size == 64:
             character_set = Base64NumericEncoder.get_base_64()
-        elif encoding_size == 90:
-            character_set = Base64NumericEncoder.get_base_90()
+        elif encoding_size == 91:
+            character_set = Base64NumericEncoder.get_base_91()
         else:
             raise ValueError(f'Unsupported encoding size: {encoding_size}, currently we only support base 16, 64, and 90.')
+        return character_set
 
-        # Create the optimal encoder
-        self.np_timeseries = self.get_np_timeseries(timeseries)
-        self.start = np.min(self.np_timeseries[0, 0])
-
-        # Determine regularity of data
-        gaps = np.diff(self.np_timeseries[:, 0], axis=0)
-        if np.all(gaps == gaps[0]):
-            # Series is regular
-            self.regular = True
-            self.interval = gaps[0]
+    @staticmethod
+    def encode_json(json_data, ts_key, ts_value, sort_values = False, encoding_size = 64):
+        if type(json_data) == dict:
+            for key in json_data:
+                json_data[key] = TimeSeriesEncoder.encode_json(json_data[key], ts_key, ts_value, sort_values, encoding_size)
+            return json_data
+        elif type(json_data) == list:
+            is_ts = True
+            for item in json_data:
+                if type(item) == dict:
+                    if ts_key not in item or ts_value not in item:
+                        is_ts = False
+                else:
+                    is_ts = False
+                
+            if is_ts == False:
+                for i, j in enumerate(json_data):
+                    json_data[i] = TimeSeriesEncoder.encode_json(j, ts_key, ts_value, sort_values, encoding_size)
+            else:
+                if sort_values:
+                    json_data.sort(key = lambda x: x[ts_key])
+                encoder = TimeSeriesEncoder(json_data, encoding_size = encoding_size)
+                if encoder.regular:
+                    json_data = {
+                        "encoder" : "TimeSeriesEncoder",
+                        "start" : encoder.start,
+                        "interval" : encoder.interval,
+                        "signed" : encoder.encoder.signed,
+                        "ts_key": ts_key,
+                        "ts_value": ts_value,
+                        "encoding_depth" : encoder.encoder.encoding_depth,
+                        "encoding_size" : encoder.encoder.encoding_size,
+                        "float_precision" : encoder.encoder.float_precision,
+                        "data" : encoder.encode(json_data)
+                    }
+                else:
+                    json_data = {
+                        "encoder" : "TimeSeriesEncoder",
+                        "start" : encoder.start,
+                        "signed" : encoder.encoder.signed,
+                        "ts_key": ts_key,
+                        "ts_value": ts_value,
+                        "encoding_depth" : encoder.encoder.encoding_depth,
+                        "encoding_size" : encoder.encoder.encoding_size,
+                        "float_precision" : encoder.encoder.float_precision,
+                        "time_encoding_depth": encoder.timeEncoder.encoding_depth,
+                        "data" : encoder.encode(json_data)
+                    }
+                
+            return json_data
         else:
-            self.regular = False
-            offsets = self.np_timeseries[:, 0] - self.start
-            largest_offset = np.max(offsets)
+            return json_data
 
-            timebitsize = 0
-            while largest_offset >= 1:
-                largest_offset /= encoding_size
-                timebitsize += 1
-
-        # Determine value bounds
-        values = self.np_timeseries[:, 1]
-        max_value = np.max(values)
-        min_value = np.min(values)
-
-        # Determine data precision
-        precision = np.vectorize(precision_and_scale)
-        _, values = precision(values)
-        maximum_precision = np.max(values)
-
-        max_value = max(abs(max_value), abs(min_value))
-
-        signed = False
-        if min_value < 0:
-            signed = True
-            max_value *= 2
-
-        if maximum_precision == 0:
-            numeric_type = int
+    @staticmethod
+    def decode_json(json_data):
+        if type(json_data) != dict:
+            if type(json_data) == list:
+                for i, j in enumerate(json_data):
+                    json_data[i] = TimeSeriesEncoder.decode_json(j)
+            return json_data
         else:
-            numeric_type = float
-            max_value *= 10 ** maximum_precision
+            encoded_ts = False
+            if 'encoder' in json_data:
+                if json_data['encoder'] == 'TimeSeriesEncoder':
+                    encoded_ts = True
+                    
+            if encoded_ts == False:
+                for k in json_data:
+                    json_data[k] = TimeSeriesEncoder.decode_json(json_data[k])
+                return json_data
+            else:
+                encoder = TimeSeriesEncoder()
+                encoder.start = json_data['start']
+                encoder.signed = json_data['signed']
+                encoder.ts_key = json_data['ts_key']
+                encoder.ts_value = json_data['ts_value']
 
-        valuebitsize = 0
-        while max_value >= 1:
-            max_value /= encoding_size
-            valuebitsize += 1
+                if json_data['float_precision'] == 0:
+                    numeric_type = int
+                else:
+                    numeric_type = float
 
-        # Create encoders
-        if self.regular == False:
-            self.timeEncoder = Base64NumericEncoder(encoding_depth = timebitsize, signed=False, numeric_type=int, character_set = character_set)
-        
-        self.encoder = Base64NumericEncoder(encoding_depth = valuebitsize, signed=signed, numeric_type=numeric_type, float_precision=maximum_precision, character_set = character_set)
+                character_set = TimeSeriesEncoder.get_character_set(json_data['encoding_size'])
+                encoder.encoder = Base64NumericEncoder(encoding_depth = json_data['encoding_depth'], signed=json_data['signed'], numeric_type=numeric_type, float_precision=json_data['float_precision'], character_set = character_set)
 
+                if 'time_encoding_depth' in json_data:
+                    encoder.timeEncoder = Base64NumericEncoder(encoding_depth = json_data['time_encoding_depth'], signed=False, numeric_type=int, character_set = character_set)
+                    encoder.regular = False
+                else:
+                    encoder.regular = True
+                    encoder.interval = json_data['interval']
+
+                json_data = encoder.decode(json_data['data'])
+                return json_data
+
+
+    def __init__(self, timeseries = None, encoding_size = 64):
         # Save raw timeseries
         self.timeseries = timeseries
+        self.encoding_size = encoding_size
+        self.ts_key = 'UTC'
+        self.ts_value = 'Value'
+
+        if timeseries is not None:
+            # Check encoding size
+            character_set = TimeSeriesEncoder.get_character_set(encoding_size)
+
+            # Create the optimal encoder
+            self.np_timeseries = self.get_np_timeseries(timeseries)
+            self.start = np.min(self.np_timeseries[0, 0])
+
+            # Determine regularity of data
+            gaps = np.diff(self.np_timeseries[:, 0], axis=0)
+            if np.all(gaps == gaps[0]):
+                # Series is regular
+                self.regular = True
+                self.interval = gaps[0]
+            else:
+                self.regular = False
+                offsets = self.np_timeseries[:, 0] - self.start
+                largest_offset = np.max(offsets)
+
+                timebitsize = 0
+                while largest_offset >= 1:
+                    largest_offset /= encoding_size
+                    timebitsize += 1
+
+            # Determine value bounds
+            values = self.np_timeseries[:, 1]
+            max_value = np.max(values)
+            min_value = np.min(values)
+
+            # Determine data precision
+            precision = np.vectorize(precision_and_scale)
+            _, values = precision(values)
+            maximum_precision = np.max(values)
+
+            max_value = max(abs(max_value), abs(min_value))
+
+            signed = False
+            if min_value < 0:
+                signed = True
+                max_value *= 2
+
+            if maximum_precision == 0:
+                numeric_type = int
+            else:
+                numeric_type = float
+                max_value *= 10 ** maximum_precision
+
+            valuebitsize = 0
+            while max_value >= 1:
+                max_value /= encoding_size
+                valuebitsize += 1
+
+            # Create encoders
+            if self.regular == False:
+                self.timeEncoder = Base64NumericEncoder(encoding_depth = timebitsize, signed=False, numeric_type=int, character_set = character_set)
+
+            self.encoder = Base64NumericEncoder(encoding_depth = valuebitsize, signed=signed, numeric_type=numeric_type, float_precision=maximum_precision, character_set = character_set)
 
     def get_np_timeseries(self, timeseries):
         raw = np.zeros((len(timeseries), 2))
@@ -132,8 +235,8 @@ class TimeSeriesEncoder:
                 word = data[idx:idx+wordsize]
                 decoded_word = self.encoder.decode(word)
                 json_values.append({
-                    "UTC": datetime.datetime.utcfromtimestamp(time_index).strftime('%Y-%m-%dT%H:%M:%SZ'),
-                    "Value" : decoded_word
+                    self.ts_key: datetime.datetime.utcfromtimestamp(time_index).strftime('%Y-%m-%dT%H:%M:%SZ'),
+                    self.ts_value : decoded_word
                 })
                 time_index += self.interval
         else:
@@ -147,8 +250,8 @@ class TimeSeriesEncoder:
                 decoded_word = self.encoder.decode(word)
                 timestamp = decoded_offset + self.start
                 json_values.append({
-                    "UTC": datetime.datetime.utcfromtimestamp(timestamp).strftime('%Y-%m-%dT%H:%M:%SZ'),
-                    "Value" : decoded_word
+                    self.ts_key: datetime.datetime.utcfromtimestamp(timestamp).strftime('%Y-%m-%dT%H:%M:%SZ'),
+                    self.ts_value : decoded_word
                 })
 
         return json_values

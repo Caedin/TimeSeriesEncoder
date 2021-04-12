@@ -5,8 +5,8 @@ class Base64NumericEncoder:
 
     def __init__(self, numeric_type = None, float_precision = None, signed = None, encoding_depth = None, character_set = None):
         self.numeric_type = numeric_type or float
-        self.encoding_depth = encoding_depth or 4
-        self.float_precision = float_precision or 4
+        self.encoding_depth = encoding_depth or 1
+        self.float_precision = float_precision or 0
         self.signed = signed or False
 
         # Default to base64, but accept an input character set
@@ -34,7 +34,7 @@ class Base64NumericEncoder:
             self.min_value = self.min_state
 
     @staticmethod
-    def get_base_90():
+    def get_base_91():
         character_set = [str(x) for x in range(10)] + [chr(x) for x in range(65, 91, 1)] + [chr(x) for x in range(97, 123, 1)] + ['-', '_', '!', '#', '$', '%', '&', '(', ')', '*', '+', ',', '.', '/', ':', ';', '<', '=', '>', '?', '@', '[', ']', '^', '`', '}', '{', '|', '~'] 
         return character_set
 
