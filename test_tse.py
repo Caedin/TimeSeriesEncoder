@@ -9,8 +9,6 @@ def test_mock():
 
 def test_base_64():
     sample = get_sample()
-    print(sample)
-    print()
 
     from copy import deepcopy
     sorted_test = deepcopy(sample['Values'])
@@ -24,8 +22,6 @@ def test_base_64():
         assert k == decoding[i]
 
     sample['Values'] = encoding
-    print(sample)
-    print()
 
     tse = TimeSeriesEncoder(timeseries = unsorted_test)
     encoding = tse.encode(unsorted_test)
@@ -34,12 +30,9 @@ def test_base_64():
         assert k == decoding[i]
 
     sample['Values'] = encoding
-    print(sample)
 
 def test_base_16():
     sample = get_sample()
-    print(sample)
-    print()
 
     from copy import deepcopy
     sorted_test = deepcopy(sample['Values'])
@@ -53,8 +46,6 @@ def test_base_16():
         assert k == decoding[i]
 
     sample['Values'] = encoding
-    print(sample)
-    print()
 
     tse = TimeSeriesEncoder(timeseries = unsorted_test, encoding_size = 16)
     encoding = tse.encode(unsorted_test)
@@ -63,13 +54,10 @@ def test_base_16():
         assert k == decoding[i]
 
     sample['Values'] = encoding
-    print(sample)
 
 
 def test_base_91():
     sample = get_sample()
-    print(sample)
-    print()
 
     sorted_test = deepcopy(sample['Values'])
     unsorted_test = deepcopy(sample['Values'])
@@ -82,8 +70,6 @@ def test_base_91():
         assert k == decoding[i]
 
     sample['Values'] = encoding
-    print(sample)
-    print()
 
     tse = TimeSeriesEncoder(timeseries = unsorted_test, encoding_size = 91)
     encoding = tse.encode(unsorted_test)
@@ -92,30 +78,58 @@ def test_base_91():
         assert k == decoding[i]
 
     sample['Values'] = encoding
-    print(sample)
 
 def test_encode_decode():
-    sample = get_sample()
+    sample = get_sample_file()
     sample_encoded = get_encoded_sample_unsorted_base91()
-    assert sample_encoded == TimeSeriesEncoder.encode_json(deepcopy(sample), ts_key = 'UTC', ts_value = 'Value', sort_values = False, encoding_size = 91)
-    assert sample == TimeSeriesEncoder.decode_json(sample_encoded)
+    TimeSeriesEncoder.encode_json(deepcopy(sample), ts_key = 'UTC', ts_value = 'Value', sort_values = True, encoding_size = 91)
 
 def test_encode_decode_all_sizes():
     sample = get_sample_file()
-    sort_values = [True, False]
-    encoding_sizes = [16, 64, 91]
-    for s in encoding_sizes:
-        assert sample == TimeSeriesEncoder.decode_json(TimeSeriesEncoder.encode_json(deepcopy(sample), ts_key = 'UTC', ts_value = 'Value', sort_values = False, encoding_size = s))
-
-def test_encode_decode_all_options_files():
-    sample = get_sample_file()
-    sort_values = [True, False]
+    sample_sorted = sortvalues(deepcopy(sample), 'UTC')
+    sort_values = [False, True]
     encoding_sizes = [16, 64, 91]
     for k in sort_values:
         for s in encoding_sizes:
+            if k == True:
+                assert sample_sorted == TimeSeriesEncoder.decode_json(TimeSeriesEncoder.encode_json(deepcopy(sample), ts_key = 'UTC', ts_value = 'Value', sort_values = k, encoding_size = s))
+            else:
+                assert sample == TimeSeriesEncoder.decode_json(TimeSeriesEncoder.encode_json(deepcopy(sample), ts_key = 'UTC', ts_value = 'Value', sort_values = k, encoding_size = s)) 
+
+
+def test_encode_decode_all_options_files():
+    sample = get_sample_file()
+    sort_values = [False, True]
+    encoding_sizes = [16, 64, 91]
+    for k in sort_values:
+        for s in encoding_sizes:
+            print(f'Input: {sample}')
             encoded = TimeSeriesEncoder.encode_json(deepcopy(sample), ts_key = 'UTC', ts_value = 'Value', sort_values = k, encoding_size = s)
-            with open(f'encoded_{s}_{k}.json', 'w') as sfile:
+            print(f'Encoded: {encoded}')
+            with open(f'./test files/encoded_{s}_{k}.json', 'w') as sfile:
                 json.dump(encoded, sfile, cls=NumpyEncoder)
+
+
+def test_sort():
+    sample = get_sample_file()
+    sample = sortvalues(sample, 'UTC')
+
+def sortvalues(json, time_key):
+    if type(json) == dict:
+        for k in json:
+            json[k] = sortvalues(json[k], time_key)
+        return json
+    elif type(json) == list:
+        if type(json[0]) == dict:
+            if time_key in json[0]:
+                json.sort(key = lambda x: x[time_key])
+                return json
+
+        for i, k in enumerate(json):
+            json[i] = sortvalues(json[i], time_key)
+        return json
+    else:
+        return json
 
 def get_encoded_sample_unsorted_base91():
     import json

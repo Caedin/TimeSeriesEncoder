@@ -89,7 +89,7 @@ def test_all():
             runner(encoder)
 
 def test_base16():
-    character_set = [Base64NumericEncoder.get_base_16()
+    character_set = Base64NumericEncoder.get_base_16()
     encoder = Base64NumericEncoder(signed = True, encoding_depth = 3, numeric_type = int, character_set = character_set)
     runner(encoder)
     encoder = Base64NumericEncoder(signed = True, encoding_depth = 1, numeric_type = int, character_set = character_set)
@@ -111,7 +111,7 @@ def test_base16():
     runner(encoder)
 
 def test_base90():
-    character_set = Base64NumericEncoder.get_base_90()
+    character_set = Base64NumericEncoder.get_base_91()
     encoder = Base64NumericEncoder(signed = True, encoding_depth = 3, numeric_type = int, character_set = character_set)
     runner(encoder, verbose=True)
     encoder = Base64NumericEncoder(signed = True, encoding_depth = 1, numeric_type = int, character_set = character_set)

@@ -57,33 +57,36 @@ class TimeSeriesEncoder:
             else:
                 if sort_values:
                     json_data.sort(key = lambda x: x[ts_key])
+
                 encoder = TimeSeriesEncoder(json_data, encoding_size = encoding_size)
+
+                # Add encoded information to the json
+                json_data = {
+                    "encoder" : "TimeSeriesEncoder",
+                    "start" : encoder.start,
+                    "ts_key": ts_key,
+                    "ts_value": ts_value,
+                    "encoding_size": encoding_size,
+                    "data" : encoder.encode(json_data)
+                }
+
+                # Add encoding metadata for decoding later
                 if encoder.regular:
-                    json_data = {
-                        "encoder" : "TimeSeriesEncoder",
-                        "start" : encoder.start,
-                        "interval" : encoder.interval,
-                        "signed" : encoder.encoder.signed,
-                        "ts_key": ts_key,
-                        "ts_value": ts_value,
-                        "encoding_depth" : encoder.encoder.encoding_depth,
-                        "encoding_size" : encoder.encoder.encoding_size,
-                        "float_precision" : encoder.encoder.float_precision,
-                        "data" : encoder.encode(json_data)
-                    }
+                    json_data['interval'] = encoder.interval
                 else:
-                    json_data = {
-                        "encoder" : "TimeSeriesEncoder",
-                        "start" : encoder.start,
-                        "signed" : encoder.encoder.signed,
-                        "ts_key": ts_key,
-                        "ts_value": ts_value,
-                        "encoding_depth" : encoder.encoder.encoding_depth,
-                        "encoding_size" : encoder.encoder.encoding_size,
-                        "float_precision" : encoder.encoder.float_precision,
-                        "time_encoding_depth": encoder.timeEncoder.encoding_depth,
-                        "data" : encoder.encode(json_data)
-                    }
+                    json_data['time_encoding_depth'] = encoder.timeEncoder.encoding_depth
+                
+                if encoder.static is not None:
+                    json_data['static_value'] = encoder.static['value']
+                    json_data['static_count'] = encoder.static['count']
+                    
+                    if encoder.regular:
+                        del json_data['data']
+                        del json_data['encoding_size']
+                else:
+                    json_data["encoding_depth"] = encoder.encoder.encoding_depth
+                    json_data["float_precision"] = encoder.encoder.float_precision
+                    json_data["signed"] = encoder.encoder.signed
                 
             return json_data
         else:
@@ -109,26 +112,33 @@ class TimeSeriesEncoder:
             else:
                 encoder = TimeSeriesEncoder()
                 encoder.start = json_data['start']
-                encoder.signed = json_data['signed']
                 encoder.ts_key = json_data['ts_key']
                 encoder.ts_value = json_data['ts_value']
 
-                if json_data['float_precision'] == 0:
-                    numeric_type = int
-                else:
-                    numeric_type = float
+                if 'static_value' not in json_data:
+                    character_set = TimeSeriesEncoder.get_character_set(json_data['encoding_size'])
+                    encoder.signed = json_data['signed']
+                    if json_data['float_precision'] == 0:
+                        numeric_type = int
+                    else:
+                        numeric_type = float
 
-                character_set = TimeSeriesEncoder.get_character_set(json_data['encoding_size'])
-                encoder.encoder = Base64NumericEncoder(encoding_depth = json_data['encoding_depth'], signed=json_data['signed'], numeric_type=numeric_type, float_precision=json_data['float_precision'], character_set = character_set)
+                    encoder.encoder = Base64NumericEncoder(encoding_depth = json_data['encoding_depth'], signed=json_data['signed'], numeric_type=numeric_type, float_precision=json_data['float_precision'], character_set = character_set)
+                else:
+                    encoder.static = { 'value' : json_data['static_value'], 'count' : json_data['static_count']}
 
                 if 'time_encoding_depth' in json_data:
+                    character_set = TimeSeriesEncoder.get_character_set(json_data['encoding_size'])
                     encoder.timeEncoder = Base64NumericEncoder(encoding_depth = json_data['time_encoding_depth'], signed=False, numeric_type=int, character_set = character_set)
                     encoder.regular = False
                 else:
                     encoder.regular = True
                     encoder.interval = json_data['interval']
 
-                json_data = encoder.decode(json_data['data'])
+                if 'data' in json_data:
+                    json_data = encoder.decode(json_data['data'])
+                else:
+                    json_data = encoder.decode()
                 return json_data
 
 
@@ -138,6 +148,7 @@ class TimeSeriesEncoder:
         self.encoding_size = encoding_size
         self.ts_key = 'UTC'
         self.ts_value = 'Value'
+        self.static = None
 
         if timeseries is not None:
             # Check encoding size
@@ -195,7 +206,12 @@ class TimeSeriesEncoder:
             if self.regular == False:
                 self.timeEncoder = Base64NumericEncoder(encoding_depth = timebitsize, signed=False, numeric_type=int, character_set = character_set)
 
-            self.encoder = Base64NumericEncoder(encoding_depth = valuebitsize, signed=signed, numeric_type=numeric_type, float_precision=maximum_precision, character_set = character_set)
+            if valuebitsize != 0:
+                self.encoder = Base64NumericEncoder(encoding_depth = valuebitsize, signed=signed, numeric_type=numeric_type, float_precision=maximum_precision, character_set = character_set)
+            else:
+                self.static = {}
+                self.static['value'] = max_value
+                self.static['count'] = self.np_timeseries.shape[0]
 
     def get_np_timeseries(self, timeseries):
         raw = np.zeros((len(timeseries), 2))
@@ -215,44 +231,70 @@ class TimeSeriesEncoder:
 
             for row in data:
                 encoded_time = self.timeEncoder.encode(row[0])
-                encoded_data = self.encoder.encode(row[1])
+                if self.static is None:
+                    encoded_data = self.encoder.encode(row[1])
+                else:
+                    encoded_data =  ''
+
                 encoded = encoded_time + encoded_data
                 encoding += encoded
         else:
             for row in raw:
-                encoded_data = self.encoder.encode(row[1])
+                if self.static is None:
+                    encoded_data = self.encoder.encode(row[1])
+                else:
+                    encoded_data =  ''
                 encoded = encoded_data
                 encoding += encoded
         return encoding
 
-    def decode(self, data):
+    def decode(self, data = None):
         json_values = []
         
         if self.regular == True:
             time_index = self.start
-            wordsize = self.encoder.encoding_depth
-            for idx in range(0, len(data), wordsize):
-                word = data[idx:idx+wordsize]
-                decoded_word = self.encoder.decode(word)
-                json_values.append({
-                    self.ts_key: datetime.datetime.utcfromtimestamp(time_index).strftime('%Y-%m-%dT%H:%M:%SZ'),
-                    self.ts_value : decoded_word
-                })
-                time_index += self.interval
+            if self.static is None:
+                wordsize = self.encoder.encoding_depth
+                for idx in range(0, len(data), wordsize):
+                    word = data[idx:idx+wordsize]
+                    decoded_word = self.encoder.decode(word)
+                    json_values.append({
+                        self.ts_key: datetime.datetime.utcfromtimestamp(time_index).strftime('%Y-%m-%dT%H:%M:%SZ'),
+                        self.ts_value : decoded_word
+                    })
+                    time_index += self.interval
+            else:
+                for d in range(0, self.static['count']):
+                    json_values.append({
+                        self.ts_key: datetime.datetime.utcfromtimestamp(time_index).strftime('%Y-%m-%dT%H:%M:%SZ'),
+                        self.ts_value : self.static['value']
+                    })
+                    time_index += self.interval
         else:
             time_index = self.start
-            wordsize = self.timeEncoder.encoding_depth + self.encoder.encoding_depth
-            for idx in range(0, len(data), wordsize):
-                offset = data[idx:idx+self.timeEncoder.encoding_depth]
-                word = data[idx+self.timeEncoder.encoding_depth:idx+wordsize]
+            if self.static is None:
+                wordsize = self.timeEncoder.encoding_depth + self.encoder.encoding_depth
+                for idx in range(0, len(data), wordsize):
+                    offset = data[idx:idx+self.timeEncoder.encoding_depth]
+                    word = data[idx+self.timeEncoder.encoding_depth:idx+wordsize]
 
-                decoded_offset = self.timeEncoder.decode(offset)
-                decoded_word = self.encoder.decode(word)
-                timestamp = decoded_offset + self.start
-                json_values.append({
-                    self.ts_key: datetime.datetime.utcfromtimestamp(timestamp).strftime('%Y-%m-%dT%H:%M:%SZ'),
-                    self.ts_value : decoded_word
-                })
+                    decoded_offset = self.timeEncoder.decode(offset)
+                    decoded_word = self.encoder.decode(word)
+                    timestamp = decoded_offset + self.start
+                    json_values.append({
+                        self.ts_key: datetime.datetime.utcfromtimestamp(timestamp).strftime('%Y-%m-%dT%H:%M:%SZ'),
+                        self.ts_value : decoded_word
+                    })
+            else:
+                wordsize = self.timeEncoder.encoding_depth
+                for idx in range(0, len(data), wordsize):
+                    offset = data[idx:idx+wordsize]
+                    decoded_offset = self.timeEncoder.decode(offset)
+                    timestamp = decoded_offset + self.start
+                    json_values.append({
+                        self.ts_key: datetime.datetime.utcfromtimestamp(timestamp).strftime('%Y-%m-%dT%H:%M:%SZ'),
+                        self.ts_value : self.static['value']
+                    })
 
         return json_values
 
