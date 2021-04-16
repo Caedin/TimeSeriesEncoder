@@ -2,7 +2,7 @@ import pytest
 from copy import deepcopy
 import json
 from datetime import datetime
-from . import NumbaNumericEncoder
+from . import NumpyNumericEncoder
 import numpy as np
 
 
@@ -15,7 +15,7 @@ def test_numpy_encode():
     x = x[:20, 0]
     encoded = '0000000000000E1000001C2000015F9000016DA000017BB0000189C0000197D00001A5E00001B3F00001C2000001D0100001DE200001EC300001FA400002085000021660000224700002328000024090'
     
-    result = NumbaNumericEncoder.encode_vector(x, character_set, 'int', 0, False, 8)
+    result = NumpyNumericEncoder.encode_vector(x, character_set, 'int', 0, False, 8)
     assert encoded == result
 
 def test_numpy_decode():
@@ -28,7 +28,7 @@ def test_numpy_decode():
     for i, idx in enumerate(character_set):
         decoding_table[idx] = i
     
-    result = NumbaNumericEncoder.decode_vector(encoded, decoding_table, 'int', 0, False, 8)
+    result = NumpyNumericEncoder.decode_vector(encoded, decoding_table, 'int', 0, False, 8)
     for i, r in enumerate(result):
         assert x[i] == r
 
@@ -41,8 +41,8 @@ def test_numpy_rencode():
     for i, idx in enumerate(character_set):
         decoding_table[idx] = i
     
-    encoded = NumbaNumericEncoder.encode_vector(x, character_set, 'int', 0, False, 8)
-    result = NumbaNumericEncoder.decode_vector(encoded, decoding_table, 'int', 0, False, 8)
+    encoded = NumpyNumericEncoder.encode_vector(x, character_set, 'int', 0, False, 8)
+    result = NumpyNumericEncoder.decode_vector(encoded, decoding_table, 'int', 0, False, 8)
     for i, r in enumerate(result):
         assert x[i] == r
    
@@ -55,8 +55,8 @@ def test_numpy_rencode_float():
     for i, idx in enumerate(character_set):
         decoding_table[idx] = i
     
-    encoded = NumbaNumericEncoder.encode_vector(x, character_set, 'float', 2, False, 8)
-    result = NumbaNumericEncoder.decode_vector(encoded, decoding_table, 'float', 2, False, 8)
+    encoded = NumpyNumericEncoder.encode_vector(x, character_set, 'float', 2, False, 8)
+    result = NumpyNumericEncoder.decode_vector(encoded, decoding_table, 'float', 2, False, 8)
     for i, r in enumerate(result):
         assert x[i] == r
 
@@ -69,7 +69,7 @@ def test_numpy_rencode_signed():
     for i, idx in enumerate(character_set):
         decoding_table[idx] = i
     
-    encoded = NumbaNumericEncoder.encode_vector(x, character_set, 'float', 2, True, 8)
-    result = NumbaNumericEncoder.decode_vector(encoded, decoding_table, 'float', 2, True, 8)
+    encoded = NumpyNumericEncoder.encode_vector(x, character_set, 'float', 2, True, 8)
+    result = NumpyNumericEncoder.decode_vector(encoded, decoding_table, 'float', 2, True, 8)
     for i, r in enumerate(result):
         assert x[i] == r

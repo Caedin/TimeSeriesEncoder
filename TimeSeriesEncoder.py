@@ -1,6 +1,6 @@
 
 import ciso8601, time
-from Base64NumericEncoder import Base64NumericEncoder
+from NumericEncoder import NumericEncoder
 import numpy as np
 import pandas as pd
 import math
@@ -29,11 +29,11 @@ class TimeSeriesEncoder:
     def get_character_set(encoding_size):
         # Check encoding size
         if encoding_size == 16:
-            character_set = Base64NumericEncoder.get_base_16()
+            character_set = NumericEncoder.get_base_16()
         elif encoding_size == 64:
-            character_set = Base64NumericEncoder.get_base_64()
+            character_set = NumericEncoder.get_base_64()
         elif encoding_size == 91:
-            character_set = Base64NumericEncoder.get_base_91()
+            character_set = NumericEncoder.get_base_91()
         else:
             raise ValueError(f'Unsupported encoding size: {encoding_size}, currently we only support base 16, 64, and 90.')
         return character_set
@@ -125,13 +125,13 @@ class TimeSeriesEncoder:
                     else:
                         numeric_type = 'float'
 
-                    encoder.encoder = Base64NumericEncoder(encoding_depth = json_data['encoding_depth'], signed=json_data['signed'], numeric_type=numeric_type, float_precision=json_data['float_precision'], character_set = character_set)
+                    encoder.encoder = NumericEncoder(encoding_depth = json_data['encoding_depth'], signed=json_data['signed'], numeric_type=numeric_type, float_precision=json_data['float_precision'], character_set = character_set)
                 else:
                     encoder.static = { 'value' : json_data['static_value'], 'count' : json_data['static_count']}
 
                 if 'time_encoding_depth' in json_data:
                     character_set = TimeSeriesEncoder.get_character_set(json_data['encoding_size'])
-                    encoder.timeEncoder = Base64NumericEncoder(encoding_depth = json_data['time_encoding_depth'], signed=False, numeric_type='int', character_set = character_set)
+                    encoder.timeEncoder = NumericEncoder(encoding_depth = json_data['time_encoding_depth'], signed=False, numeric_type='int', character_set = character_set)
                     encoder.regular = False
                 else:
                     encoder.regular = True
@@ -205,10 +205,10 @@ class TimeSeriesEncoder:
 
             # Create encoders
             if self.regular == False:
-                self.timeEncoder = Base64NumericEncoder(encoding_depth = timebitsize, signed=False, numeric_type='int', character_set = character_set)
+                self.timeEncoder = NumericEncoder(encoding_depth = timebitsize, signed=False, numeric_type='int', character_set = character_set)
 
             if valuebitsize != 0:
-                self.encoder = Base64NumericEncoder(encoding_depth = valuebitsize, signed=signed, numeric_type=numeric_type, float_precision=maximum_precision, character_set = character_set)
+                self.encoder = NumericEncoder(encoding_depth = valuebitsize, signed=signed, numeric_type=numeric_type, float_precision=maximum_precision, character_set = character_set)
             else:
                 self.static = {}
                 self.static['value'] = max_value

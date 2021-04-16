@@ -1,10 +1,9 @@
 
 import math
 import numpy as np
-from . import NumbaNumericEncoder
+from . import NumpyNumericEncoder
 
-class Base64NumericEncoder:
-
+class NumericEncoder:
     def __init__(self, numeric_type = None, float_precision = None, signed = None, encoding_depth = None, character_set = None):
         self.numeric_type = numeric_type or 'float'
         self.encoding_depth = encoding_depth or 1
@@ -50,7 +49,7 @@ class Base64NumericEncoder:
         
     def set_encoding_character_set(self, character_set):
         if character_set is None:
-            self.encoding_table = Base64NumericEncoder.get_base_64()
+            self.encoding_table = NumericEncoder.get_base_64()
         else:
             self.encoding_table = character_set
         
@@ -60,7 +59,7 @@ class Base64NumericEncoder:
             self.decoding_table[idx] = i
         
     def encode(self, numeric_data):
-        return NumbaNumericEncoder.encode_vector(numeric_data, self.encoding_table, numeric_type = self.numeric_type, float_precision = self.float_precision, signed = self.signed, encoding_depth = self.encoding_depth, encoding_base = self.encoding_size)
+        return NumpyNumericEncoder.encode_vector(numeric_data, self.encoding_table, numeric_type = self.numeric_type, float_precision = self.float_precision, signed = self.signed, encoding_depth = self.encoding_depth, encoding_base = self.encoding_size)
 
     def decode(self, encoded_data):
-        return NumbaNumericEncoder.decode_vector(encoded_data, self.decoding_table, numeric_type = self.numeric_type, float_precision = self.float_precision, signed = self.signed, encoding_depth = self.encoding_depth, encoding_base = self.encoding_size)
+        return NumpyNumericEncoder.decode_vector(encoded_data, self.decoding_table, numeric_type = self.numeric_type, float_precision = self.float_precision, signed = self.signed, encoding_depth = self.encoding_depth, encoding_base = self.encoding_size)
