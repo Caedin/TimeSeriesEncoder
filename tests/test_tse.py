@@ -3,7 +3,7 @@ from copy import deepcopy
 from numpyencoder import NumpyEncoder
 import json
 
-from ..encoders.time_series_encoder import TimeSeriesEncoder
+from src.timeseriesencoder import TimeSeriesEncoder
 
 def test_mock():
     assert True == True

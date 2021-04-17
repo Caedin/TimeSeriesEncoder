@@ -1,5 +1,5 @@
 import pytest
-from ..encoders.time_series_encoder import TimeSeriesEncoder
+from src.timeseriesencoder  import TimeSeriesEncoder
 from copy import deepcopy
 from numpyencoder import NumpyEncoder
 import json

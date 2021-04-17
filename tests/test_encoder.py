@@ -1,4 +1,4 @@
-from ..encoders.numeric_encoder import NumericEncoder
+from src.timeseriesencoder  import NumericEncoder
 import pytest
 import numpy as np
 

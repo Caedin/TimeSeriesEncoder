@@ -1,11 +1,8 @@
 
-import ciso8601, time
+import ciso8601
 from .numeric_encoder import NumericEncoder
 import numpy as np
-import pandas as pd
-import math
 import datetime
-import copy
 
 __all__ = ['TimeSeriesEncoder']
 
@@ -229,7 +226,7 @@ class TimeSeriesEncoder:
         encoded = None
 
         if self.regular == False:
-            data = raw.copy()
+            data = np.copy(raw)
             data[:, 0] = data[:, 0] - self.start
 
             encoded_time = self.timeEncoder.encode(data[:, 0])
