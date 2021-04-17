@@ -16,7 +16,7 @@ The encoder will encode all time series it finds in the json. Each will get thei
 
 To run tests call pytests on the tests folder from the base package folder.
 ```
-pytest ./tests/
+pytest ./tests/ -v -s
 ```
 
 ![image](https://user-images.githubusercontent.com/8877753/115096228-d00ccb00-9ee9-11eb-815a-8d837ffc66f3.png)
