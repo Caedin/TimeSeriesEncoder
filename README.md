@@ -19,6 +19,8 @@ To run tests call pytests on the tests folder from the base package folder.
 pytest ./tests/
 ```
 
+![image](https://user-images.githubusercontent.com/8877753/115096228-d00ccb00-9ee9-11eb-815a-8d837ffc66f3.png)
+
 
 Example input/outputs
 ```
