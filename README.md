@@ -52,7 +52,8 @@ with open('encoded.json', 'w') as rfile:
     json.dump(encoded, rfile, cls=NumpyEncoder)
 ```
 
-Sizes before and after encoding
+Size before and after encoding. Encoding reduced package size by 10x.
+
 ![image](https://user-images.githubusercontent.com/8877753/115103478-d023bf80-9f17-11eb-9681-b03835097da1.png)
 
 Data
