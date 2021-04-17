@@ -1,7 +1,8 @@
 
 import math
 import numpy as np
-from . import NumpyNumericEncoder
+
+__all__ = ['NumericEncoder']
 
 class NumericEncoder:
     def __init__(self, numeric_type = None, float_precision = None, signed = None, encoding_depth = None, character_set = None):
@@ -9,6 +10,7 @@ class NumericEncoder:
         self.encoding_depth = encoding_depth or 1
         self.float_precision = float_precision or 0
         self.signed = signed or False
+        self.encoding_size = 0
 
         # Default to base64, but accept an input character set
         self.set_encoding_character_set(character_set)
@@ -57,9 +59,42 @@ class NumericEncoder:
         self.decoding_table = np.zeros(256, dtype=np.uint8)
         for i, idx in enumerate(self.encoding_table):
             self.decoding_table[idx] = i
-        
-    def encode(self, numeric_data):
-        return NumpyNumericEncoder.encode_vector(numeric_data, self.encoding_table, numeric_type = self.numeric_type, float_precision = self.float_precision, signed = self.signed, encoding_depth = self.encoding_depth, encoding_base = self.encoding_size)
 
-    def decode(self, encoded_data):
-        return NumpyNumericEncoder.decode_vector(encoded_data, self.decoding_table, numeric_type = self.numeric_type, float_precision = self.float_precision, signed = self.signed, encoding_depth = self.encoding_depth, encoding_base = self.encoding_size)
+    def encode(self, numeric_data):
+        vector = np.copy(numeric_data)
+        if self.numeric_type == 'float':
+            vector = vector * (10 ** self.float_precision)
+
+        if self.signed:
+            vector = vector + self.max_state
+
+        vector = np.rint(vector).astype(np.uint64)
+        encoded_bytes = np.zeros((vector.shape[0], self.encoding_depth), dtype=np.uint8)
+
+        for i in range(self.encoding_depth):
+            place_value = (self.encoding_size ** (self.encoding_depth - i - 1))
+            encoded_bytes[:, i][vector >= place_value] = np.floor_divide(vector[vector >= place_value], place_value)
+            vector[vector >= place_value] = vector[vector >= place_value] % place_value
+        codes = np.vectorize(self.encoding_table.item)(encoded_bytes.astype(np.uint8))
+
+        encoded = np.vectorize(chr)(codes.flatten())
+        return ''.join(encoded)
+
+    def decode(self, string):
+        vector = np.frombuffer(string.encode('utf-8'), dtype=f'S1').reshape(int(len(string) / self.encoding_depth), self.encoding_depth)
+        vector = np.vectorize(ord)(vector)
+        vector = np.vectorize(self.decoding_table.item)(vector)
+
+        for i in range(self.encoding_depth):
+            offset = (self.encoding_size ** (self.encoding_depth - i - 1))
+            vector[:, i] = vector[:, i] * offset
+        vector = np.sum(vector, axis=1)
+
+        # Adjust for signage
+        if self.signed:
+            vector = vector - self.max_state
+
+        if self.numeric_type == 'float':
+            vector =  np.divide(vector, (10 ** self.float_precision))
+
+        return vector

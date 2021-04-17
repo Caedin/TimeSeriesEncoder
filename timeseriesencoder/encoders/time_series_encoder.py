@@ -1,11 +1,13 @@
 
 import ciso8601, time
-from NumericEncoder import NumericEncoder
+from .numeric_encoder import NumericEncoder
 import numpy as np
 import pandas as pd
 import math
 import datetime
 import copy
+
+__all__ = ['TimeSeriesEncoder']
 
 def precision_and_scale_np(x, max_magnitude):
     max_magnitude = max(max_magnitude, 1)

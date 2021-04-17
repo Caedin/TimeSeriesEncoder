@@ -1,5 +1,5 @@
 import pytest
-from TimeSeriesEncoder import *
+from ..encoders.time_series_encoder import TimeSeriesEncoder
 from copy import deepcopy
 from numpyencoder import NumpyEncoder
 import json
@@ -7,7 +7,7 @@ from datetime import datetime
 
 def get_sample_file():
     import json
-    with open('sample.json', 'r') as ifile:
+    with open('./tests/sample.json', 'r') as ifile:
         return json.load(ifile)
 
 def sortvalues(json, time_key):
@@ -28,7 +28,7 @@ def sortvalues(json, time_key):
         return json
 
 sample = get_sample_file()
-sample_copy = copy.deepcopy(sample)
+sample_copy = deepcopy(sample)
 sample_sorted = sortvalues(deepcopy(sample), 'UTC')
 
 

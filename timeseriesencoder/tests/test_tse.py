@@ -1,8 +1,9 @@
 import pytest
-from TimeSeriesEncoder import *
 from copy import deepcopy
 from numpyencoder import NumpyEncoder
 import json
+
+from ..encoders.time_series_encoder import TimeSeriesEncoder
 
 def test_mock():
     assert True == True
@@ -134,7 +135,7 @@ def get_encoded_sample_unsorted_base91():
 
 def get_sample_file():
     import json
-    with open('sample.json', 'r') as ifile:
+    with open('./tests/sample.json', 'r') as ifile:
         return json.load(ifile)
 
 def get_sample():
