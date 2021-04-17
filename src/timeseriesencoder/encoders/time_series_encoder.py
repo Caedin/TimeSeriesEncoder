@@ -3,6 +3,7 @@ import ciso8601
 from .numeric_encoder import NumericEncoder
 import numpy as np
 import datetime
+from copy import deepcopy
 
 __all__ = ['TimeSeriesEncoder']
 
@@ -38,10 +39,22 @@ class TimeSeriesEncoder:
         return character_set
 
     @staticmethod
-    def encode_json(json_data, ts_key, ts_value, sort_values = False, encoding_size = 64):
+    def encode_json(json_data, ts_key, ts_value, sort_values = False, encoding_size = 64, inplace=False):
+        if inplace == False:
+            json_data = deepcopy(json_data)
+        return TimeSeriesEncoder._encode_json(json_data, ts_key, ts_value, sort_values, encoding_size)
+            
+    @staticmethod
+    def decode_json(json_data, inplace=False):
+        if inplace == False:
+            json_data = deepcopy(json_data)
+        return TimeSeriesEncoder._decode_json(json_data)
+
+    @staticmethod
+    def _encode_json(json_data, ts_key, ts_value, sort_values = False, encoding_size = 64):
         if type(json_data) == dict:
             for key in json_data:
-                json_data[key] = TimeSeriesEncoder.encode_json(json_data[key], ts_key, ts_value, sort_values, encoding_size)
+                json_data[key] = TimeSeriesEncoder._encode_json(json_data[key], ts_key, ts_value, sort_values, encoding_size)
             return json_data
         elif type(json_data) == list:
             is_ts = True
@@ -54,7 +67,7 @@ class TimeSeriesEncoder:
                 
             if is_ts == False:
                 for i, j in enumerate(json_data):
-                    json_data[i] = TimeSeriesEncoder.encode_json(j, ts_key, ts_value, sort_values, encoding_size)
+                    json_data[i] = TimeSeriesEncoder._encode_json(j, ts_key, ts_value, sort_values, encoding_size)
             else:
                 if sort_values:
                     json_data.sort(key = lambda x: x[ts_key])
@@ -94,11 +107,11 @@ class TimeSeriesEncoder:
             return json_data
 
     @staticmethod
-    def decode_json(json_data):
+    def _decode_json(json_data):
         if type(json_data) != dict:
             if type(json_data) == list:
                 for i, j in enumerate(json_data):
-                    json_data[i] = TimeSeriesEncoder.decode_json(j)
+                    json_data[i] = TimeSeriesEncoder._decode_json(j)
             return json_data
         else:
             encoded_ts = False
@@ -108,7 +121,7 @@ class TimeSeriesEncoder:
                     
             if encoded_ts == False:
                 for k in json_data:
-                    json_data[k] = TimeSeriesEncoder.decode_json(json_data[k])
+                    json_data[k] = TimeSeriesEncoder._decode_json(json_data[k])
                 return json_data
             else:
                 encoder = TimeSeriesEncoder()
@@ -181,7 +194,7 @@ class TimeSeriesEncoder:
             min_value = np.min(values)
 
             # Determine data precision
-            longest_input_length = len(values.astype(np.unicode)[np.argmax(values.astype(np.unicode))])
+            longest_input_length = len(values.astype(np.str_)[np.argmax(values.astype(np.str_))])
             maximum_precision = precision_and_scale_np(values, longest_input_length)
 
             max_value = max(abs(max_value), abs(min_value))
