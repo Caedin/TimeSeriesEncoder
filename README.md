@@ -1,5 +1,11 @@
 A class for encoding timeseries data in JSON into an embedded base 16, base 64 or base 91 encoding.
 
+# Installation
+```
+pip install timeseriesencoder
+```
+
+# Use
 To use simply pass any json into TimeSeriesEncoder.encode_json(data, ts_key, ts_value) where ts_key and ts_value are the timestamp key and the value key in the json.
 
 ```
