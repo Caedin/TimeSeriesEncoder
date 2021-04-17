@@ -57,11 +57,12 @@ class TimeSeriesEncoder:
                 json_data[key] = TimeSeriesEncoder._encode_json(json_data[key], ts_key, ts_value, sort_values, encoding_size)
             return json_data
         elif type(json_data) == list:
-            is_ts = True
+            is_ts = False
+            expected_keys = set([ts_key, ts_value])
             for item in json_data:
                 if type(item) == dict:
-                    if ts_key not in item or ts_value not in item:
-                        is_ts = False
+                    if expected_keys == set(item.keys()):
+                        is_ts = True
                 else:
                     is_ts = False
                 
