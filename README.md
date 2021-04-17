@@ -6,14 +6,14 @@ pip install timeseriesencoder
 ```
 
 # Use
-To use simply pass any json into TimeSeriesEncoder.encode_json(data, ts_key, ts_value) where ts_key and ts_value are the timestamp key and the value key in the json.
+To use pass any json into TimeSeriesEncoder.encode_json(data, ts_key, ts_value) where ts_key and ts_value are the timestamp key and the value key in the json.
 
 ```python
 from timeseriesencoder import *
 encoded = TimeSeriesEncoder.encode_json(myJson, ts_key='UTC', ts_value='Value')
 ```
 
-To decode you can simply apply the reverse:
+To decode you can apply the reverse:
 ```python
 decoded = TimeSeriesEncoder.decode_json(encoded)
 ```
