@@ -72,8 +72,6 @@ Output
             "Latitude": 50.82426,
             "Longitude": 3.32744,
             "Timezone": "Europe/Brussels",
-            "PlanId": "14d14980-306a-40c8-a784-579022ec9d49",
-            "HistoricalPlanId": "0d0fb8b5-a00b-4546-925f-0a7e7b72503b",
             "DataSource": "ECMWF-IFS",
             "AsOfDateUTC": "2021-04-08T00:00:00Z",
             "ForecastWeather": [
@@ -152,8 +150,6 @@ Input
             "Latitude": 50.82426,
             "Longitude": 3.32744,
             "Timezone": "Europe/Brussels",
-            "PlanId": "14d14980-306a-40c8-a784-579022ec9d49",
-            "HistoricalPlanId": "0d0fb8b5-a00b-4546-925f-0a7e7b72503b",
             "DataSource": "ECMWF-IFS",
             "AsOfDateUTC": "2021-04-08T00:00:00Z",
             "ForecastWeather": [
