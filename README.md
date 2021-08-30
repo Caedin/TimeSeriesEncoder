@@ -62,7 +62,7 @@ Output
 {
     "Request": {
         "locations": [
-            "WIT_BEBEZ_SS001_WT001"
+            "XXX"
         ],
         "attributes": null,
         "aggregate": true,
@@ -70,11 +70,11 @@ Output
     },
     "Response": [
         {
-            "LocationName": "WIT_BEBEZ_SS001_WT001",
+            "LocationName": "XXX",
             "EntityType": "WIND_TURBINE",
-            "DisplayName": "BEZ_E01",
-            "Latitude": 50.82426,
-            "Longitude": 3.32744,
+            "DisplayName": "XXX",
+            "Latitude": XXX,
+            "Longitude": XXX,
             "Timezone": "Europe/Brussels",
             "DataSource": "ECMWF-IFS",
             "AsOfDateUTC": "2021-04-08T00:00:00Z",
@@ -140,7 +140,7 @@ Input
 {
     "Request": {
         "locations": [
-            "WIT_BEBEZ_SS001_WT001"
+            "XXX"
         ],
         "attributes": null,
         "aggregate": true,
@@ -148,11 +148,11 @@ Input
     },
     "Response": [
         {
-            "LocationName": "WIT_BEBEZ_SS001_WT001",
-            "EntityType": "WIND_TURBINE",
+            "LocationName": "XXX",
+            "EntityType": "XXX",
             "DisplayName": "BEZ_E01",
-            "Latitude": 50.82426,
-            "Longitude": 3.32744,
+            "Latitude": XXX,
+            "Longitude": XXX,
             "Timezone": "Europe/Brussels",
             "DataSource": "ECMWF-IFS",
             "AsOfDateUTC": "2021-04-08T00:00:00Z",
