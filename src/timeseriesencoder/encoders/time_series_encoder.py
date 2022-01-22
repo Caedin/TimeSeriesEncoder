@@ -70,7 +70,7 @@ class TimeSeriesEncoder:
             json_data = TimeSeriesEncoder.gunzip_bytes_obj(b)
             json_data = json.loads(json_data)
 
-        if inplace == False:
+        if inplace == False and gzip == False:
             json_data = deepcopy(json_data)
         decoded = TimeSeriesEncoder._decode_json(json_data)
         return decoded
@@ -249,7 +249,7 @@ class TimeSeriesEncoder:
                 self.encoder = NumericEncoder(encoding_depth = valuebitsize, signed=signed, numeric_type=numeric_type, float_precision=maximum_precision, character_set = character_set)
             else:
                 self.static = {}
-                self.static['value'] = max_value
+                self.static['value'] = max_value.item()
                 self.static['count'] = self.np_timeseries.shape[0]
 
     def get_np_timeseries(self, timeseries):

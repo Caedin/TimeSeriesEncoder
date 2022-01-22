@@ -97,4 +97,4 @@ class NumericEncoder:
         if self.numeric_type == 'float':
             vector =  np.divide(vector, (10 ** self.float_precision))
 
-        return vector
+        return [x.item() for x in vector]

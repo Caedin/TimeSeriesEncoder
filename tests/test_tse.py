@@ -3,6 +3,7 @@ import pytest
 from copy import deepcopy
 from numpyencoder import NumpyEncoder
 import json
+import numpy as np
 
 from src.timeseriesencoder import TimeSeriesEncoder
 import sys
@@ -164,6 +165,57 @@ def test_sizes_gzip():
         if k == "Raw" or k == "Raw Sorted":
             continue
         assert sizes[k] < sizes["Raw"]
+
+def check_numpy_types(obj):
+    if isinstance(obj, np.generic):
+        return True
+    elif type(obj) == dict:
+        numpyFound = False
+        for key in obj:
+            numpyFound = numpyFound or check_numpy_types(obj[key])
+        return numpyFound
+    elif type(obj) == list:
+        numpyFound = False
+        for i, _ in enumerate(obj):
+            numpyFound = numpyFound or check_numpy_types(obj[i])
+        return numpyFound
+    else:
+        return False
+
+def get_dict_types(obj):
+    if type(obj) == dict:
+        for key in obj:
+            obj[key] = get_dict_types(obj[key])
+        return obj
+    elif type(obj) == list:
+        for i, _ in enumerate(obj):
+            obj[i] = get_dict_types(obj[i])
+        return obj
+    else:
+        return type(obj)
+
+def test_no_numpy_types():
+    sample = get_sample_file()
+    sample_sorted = sortvalues(deepcopy(sample), 'UTC')
+    sort_values = [True, False]
+    encoding_sizes = [16, 64, 91]
+    for k in sort_values:
+        for s in encoding_sizes:
+            for z in [True, False]:
+                if k == True:
+                    encoded = TimeSeriesEncoder.encode_json(deepcopy(sample), ts_key = 'UTC', ts_value = 'Value', sort_values = k, encoding_size = s, gzip=z)
+                    decoded = TimeSeriesEncoder.decode_json(encoded, gzip=z)
+                    assert sample_sorted == decoded
+                    assert check_numpy_types(decoded) == False
+                else:
+                    encoded = TimeSeriesEncoder.encode_json(deepcopy(sample), ts_key = 'UTC', ts_value = 'Value', sort_values = k, encoding_size = s, gzip=z)
+                    decoded = TimeSeriesEncoder.decode_json(encoded, gzip=z)
+                    try:
+                        assert sample == decoded
+                    except AssertionError:
+                        print(encoded)
+                        raise
+                    assert check_numpy_types(decoded) == False
 
 def test_save_best_encoding():
     sample = get_sample_file()
