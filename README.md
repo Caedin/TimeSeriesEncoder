@@ -60,8 +60,7 @@ Size before and after encoding. Encoding reduced package size by 10x.
 
 In 0.1.2 the optional gzip parameter was added to encode_json and decode_json. This allows the final package to be smaller, which allows for lower data size for sending across networks, or storing in a cache system like Redis.
 
-
-![image]()
+![image](https://user-images.githubusercontent.com/8877753/150624141-81691e29-2004-4444-831c-802c52754fa9.jpeg)
 
 The raw sample.json had a size of 281KB. 
 The encoded json that is output from the program that is sorted and is using base64 style encoding is 27KB. 
