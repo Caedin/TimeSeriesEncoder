@@ -1,9 +1,31 @@
+from numpy import zeros
 import pytest
 from copy import deepcopy
 from numpyencoder import NumpyEncoder
 import json
 
 from src.timeseriesencoder import TimeSeriesEncoder
+import sys
+
+def get_size(obj, seen=None):
+    """Recursively finds size of objects"""
+    size = sys.getsizeof(obj)
+    if seen is None:
+        seen = set()
+    obj_id = id(obj)
+    if obj_id in seen:
+        return 0
+    # Important mark as seen *before* entering recursion to gracefully handle
+    # self-referential objects
+    seen.add(obj_id)
+    if isinstance(obj, dict):
+        size += sum([get_size(v, seen) for v in obj.values()])
+        size += sum([get_size(k, seen) for k in obj.keys()])
+    elif hasattr(obj, '__dict__'):
+        size += get_size(obj.__dict__, seen)
+    elif hasattr(obj, '__iter__') and not isinstance(obj, (str, bytes, bytearray)):
+        size += sum([get_size(i, seen) for i in obj])
+    return size
 
 def test_mock():
     assert True == True
@@ -94,6 +116,63 @@ def test_encode_decode_json_all_sizes():
                     print(encoded)
                     raise
 
+def test_encode_decode_json_all_sizes_gzip():
+    sample = get_sample_file()
+    sample_sorted = sortvalues(deepcopy(sample), 'UTC')
+    sort_values = [True, False]
+    encoding_sizes = [16, 64, 91]
+    for k in sort_values:
+        for s in encoding_sizes:
+            if k == True:
+                encoded = TimeSeriesEncoder.encode_json(deepcopy(sample), ts_key = 'UTC', ts_value = 'Value', sort_values = k, encoding_size = s, gzip=True)
+                decoded = TimeSeriesEncoder.decode_json(encoded, gzip=True)
+                assert sample_sorted == decoded
+            else:
+                encoded = TimeSeriesEncoder.encode_json(deepcopy(sample), ts_key = 'UTC', ts_value = 'Value', sort_values = k, encoding_size = s, gzip=True)
+                decoded = TimeSeriesEncoder.decode_json(encoded, gzip=True)
+                try:
+                    assert sample == decoded
+                except AssertionError:
+                    print(encoded)
+                    raise
+
+
+def test_sizes_gzip():
+    sample = get_sample_file()
+    sample_sorted = sortvalues(deepcopy(sample), 'UTC')
+    sort_values = [True, False]
+    encoding_sizes = [16, 64, 91]
+    sizes = { "Raw" : get_size(sample), "Raw Sorted" : get_size(sample_sorted)}
+    for k in sort_values:
+        for s in encoding_sizes:
+            for z in [True, False]:
+                if k == True:
+                    encoded = TimeSeriesEncoder.encode_json(deepcopy(sample), ts_key = 'UTC', ts_value = 'Value', sort_values = k, encoding_size = s, gzip=z)
+                    decoded = TimeSeriesEncoder.decode_json(encoded, gzip=z)
+                    sizes[f"Sorted: {k}, Encoding_Size: {s}, Gzip: {z}"] = get_size(encoded)
+                    assert sample_sorted == decoded
+                else:
+                    encoded = TimeSeriesEncoder.encode_json(deepcopy(sample), ts_key = 'UTC', ts_value = 'Value', sort_values = k, encoding_size = s, gzip=z)
+                    decoded = TimeSeriesEncoder.decode_json(encoded, gzip=z)
+                    sizes[f"Sorted: {k}, Encoding_Size: {s}, Gzip: {z}"] = get_size(encoded)
+                    try:
+                        assert sample == decoded
+                    except AssertionError:
+                        print(encoded)
+                        raise
+    for k in sizes:
+        if k == "Raw" or k == "Raw Sorted":
+            continue
+        assert sizes[k] < sizes["Raw"]
+
+def test_save_best_encoding():
+    sample = get_sample_file()
+    encoded = TimeSeriesEncoder.encode_json(sample, ts_key = "UTC", ts_value = "Value", sort_values = True, encoding_size=64, gzip=True)
+    with open ("./tests/encoded.gzip", "w") as ofile:
+        ofile.write(encoded)
+    encoded = TimeSeriesEncoder.encode_json(sample, ts_key = "UTC", ts_value = "Value", sort_values = True, encoding_size=64, gzip=False)
+    with open ("./tests/encoded.json", "w") as ofile:
+        ofile.write(json.dumps(encoded, cls=NumpyEncoder))
 
 def sortvalues(json, time_key):
     if type(json) == dict:

@@ -4,6 +4,10 @@ from .numeric_encoder import NumericEncoder
 import numpy as np
 import datetime
 from copy import deepcopy
+import gzip
+import base64
+import json
+from numpyencoder import NumpyEncoder
 
 __all__ = ['TimeSeriesEncoder']
 
@@ -26,6 +30,14 @@ class TimeSeriesEncoder:
     regular = False
 
     @staticmethod
+    def gzip_str(string_: str) -> bytes:
+        return gzip.compress(string_.encode())
+
+    @staticmethod
+    def gunzip_bytes_obj(bytes_obj: bytes) -> str:
+        return gzip.decompress(bytes_obj).decode()
+
+    @staticmethod
     def get_character_set(encoding_size):
         # Check encoding size
         if encoding_size == 16:
@@ -39,16 +51,29 @@ class TimeSeriesEncoder:
         return character_set
 
     @staticmethod
-    def encode_json(json_data, ts_key, ts_value, sort_values = False, encoding_size = 64, inplace=False):
+    def encode_json(json_data, ts_key, ts_value, sort_values = False, encoding_size = 64, inplace=False, gzip=False):
         if inplace == False:
             json_data = deepcopy(json_data)
-        return TimeSeriesEncoder._encode_json(json_data, ts_key, ts_value, sort_values, encoding_size)
+        encoded = TimeSeriesEncoder._encode_json(json_data, ts_key, ts_value, sort_values, encoding_size)
+
+        if gzip:
+            jstr = json.dumps(encoded, cls=NumpyEncoder)
+            bytes = TimeSeriesEncoder.gzip_str(jstr)
+            b64bytes = base64.b64encode(bytes)
+            encoded = b64bytes.decode("utf-8")
+        return encoded
             
     @staticmethod
-    def decode_json(json_data, inplace=False):
+    def decode_json(json_data, inplace=False, gzip=False):
+        if gzip:
+            b = base64.b64decode(json_data)
+            json_data = TimeSeriesEncoder.gunzip_bytes_obj(b)
+            json_data = json.loads(json_data)
+
         if inplace == False:
             json_data = deepcopy(json_data)
-        return TimeSeriesEncoder._decode_json(json_data)
+        decoded = TimeSeriesEncoder._decode_json(json_data)
+        return decoded
 
     @staticmethod
     def _encode_json(json_data, ts_key, ts_value, sort_values = False, encoding_size = 64):
@@ -328,7 +353,6 @@ class TimeSeriesEncoder:
             else:
                 json_values = self.__decode_regular_static(self.start)
         else:
-            time_index = self.start
             if self.static is None:
                 json_values = self.__decode_nonregular(data)
             else:
