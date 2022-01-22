@@ -52,9 +52,21 @@ with open('encoded.json', 'w') as rfile:
     json.dump(encoded, rfile, cls=NumpyEncoder)
 ```
 
+# Size
+
 Size before and after encoding. Encoding reduced package size by 10x.
 
 ![image](https://user-images.githubusercontent.com/8877753/115103478-d023bf80-9f17-11eb-9681-b03835097da1.png)
+
+In 0.1.2 the optional gzip parameter was added to encode_json and decode_json. This allows the final package to be smaller, which allows for lower data size for sending across networks, or storing in a cache system like Redis.
+
+
+![image]()
+
+The raw sample.json had a size of 281KB. 
+The encoded json that is output from the program that is sorted and is using base64 style encoding is 27KB. 
+The raw zipped sample.json is 26KB
+The programs gzipped, encoded file is just 11KB. This is nearly 1/3rd the size of the regular zip file, and just 1/25th of the original data size.
 
 Data
 Output
