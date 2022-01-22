@@ -1,14 +1,8 @@
 
 import numpy as np
-import gzip
 
 __all__ = ['NumericEncoder']
 
-def gzip_str(string_: str) -> bytes:
-    return gzip.compress(string_.encode())
-
-def gunzip_bytes_obj(bytes_obj: bytes) -> str:
-    return gzip.decompress(bytes_obj).decode()
 
 class NumericEncoder:
     def __init__(self, numeric_type = None, float_precision = None, signed = None, encoding_depth = None, character_set = None):

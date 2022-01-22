@@ -4,6 +4,8 @@ from copy import deepcopy
 from numpyencoder import NumpyEncoder
 import json
 from datetime import datetime
+import time
+import pandas as pd
 
 def get_sample_file():
     import json
@@ -31,6 +33,10 @@ sample = get_sample_file()
 sample_copy = deepcopy(sample)
 sample_sorted = sortvalues(deepcopy(sample), 'UTC')
 
+def evalWithTime(f):
+    start_time = time.time()
+    r = f() 
+    return r, (time.time() - start_time)
 
 
 def test_16bit_speed():
@@ -60,3 +66,23 @@ if __name__ == '__main__':
     from pstats import SortKey
     ps = pstats.Stats(pr).sort_stats(SortKey.CUMULATIVE)
     ps.print_stats(0.5)
+
+
+def test_get_speed():
+    rows = []
+    for s in [True, False]:
+        for k in [16,64,91]:
+            for z in [True, False]:
+                encoded = None
+                for f in [TimeSeriesEncoder.encode_json, TimeSeriesEncoder.decode_json]:
+                    key = f"Function: {f.__name__}, Sort: {s}, Size: {k}, Zip: {z}"
+                    if encoded is None:
+                        encoded, t = evalWithTime(lambda: f(sample, ts_key = 'UTC', ts_value = 'Value', sort_values = s, encoding_size = k, gzip=z))
+                    else:
+                        _, t = evalWithTime(lambda: f(encoded, gzip=z))
+                    rows.append(pd.DataFrame([[f.__name__, s, k, z, t]]))
+
+    df = pd.concat(rows)
+    df.columns=["Function", "Sort", "Size", "Zip", "Time"]
+    s = df.to_csv(index=False)
+    print(s)
