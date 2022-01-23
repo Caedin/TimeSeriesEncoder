@@ -220,11 +220,15 @@ def test_no_numpy_types():
 def test_save_best_encoding():
     sample = get_sample_file()
     encoded = TimeSeriesEncoder.encode_json(sample, ts_key = "UTC", ts_value = "Value", sort_values = True, encoding_size=64, gzip=True)
-    with open ("./tests/encoded.gzip", "w") as ofile:
+    with open ("./tests/encoded.gzip", "wb") as ofile:
         ofile.write(encoded)
     encoded = TimeSeriesEncoder.encode_json(sample, ts_key = "UTC", ts_value = "Value", sort_values = True, encoding_size=64, gzip=False)
     with open ("./tests/encoded.json", "w") as ofile:
         ofile.write(json.dumps(encoded, cls=NumpyEncoder))
+    with open ("./tests/encoded.gzip", "rb") as ifile:
+        bytes = ifile.read()
+        decoded = TimeSeriesEncoder.decode_json(bytes, gzip=True)
+        assert decoded == sortvalues(deepcopy(sample), 'UTC')
 
 def sortvalues(json, time_key):
     if type(json) == dict:

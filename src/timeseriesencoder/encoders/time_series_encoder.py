@@ -55,19 +55,16 @@ class TimeSeriesEncoder:
         if inplace == False:
             json_data = deepcopy(json_data)
         encoded = TimeSeriesEncoder._encode_json(json_data, ts_key, ts_value, sort_values, encoding_size)
-
         if gzip:
             jstr = json.dumps(encoded, cls=NumpyEncoder)
             bytes = TimeSeriesEncoder.gzip_str(jstr)
-            b64bytes = base64.b64encode(bytes)
-            encoded = b64bytes.decode("utf-8")
+            return bytes
         return encoded
             
     @staticmethod
     def decode_json(json_data, inplace=False, gzip=False):
         if gzip:
-            b = base64.b64decode(json_data)
-            json_data = TimeSeriesEncoder.gunzip_bytes_obj(b)
+            json_data = TimeSeriesEncoder.gunzip_bytes_obj(json_data)
             json_data = json.loads(json_data)
 
         if inplace == False and gzip == False:
