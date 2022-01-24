@@ -99,6 +99,7 @@ def test_base_91():
     for i, k in enumerate(unsorted_test):
         assert k == decoding[i]
 
+
 def test_encode_decode_json_all_sizes():
     sample = get_sample_file()
     sample_sorted = sortvalues(deepcopy(sample), 'UTC')
@@ -218,17 +219,16 @@ def test_no_numpy_types():
                     assert check_numpy_types(decoded) == False
 
 def test_save_best_encoding():
-    sample = get_sample_file()
-    encoded = TimeSeriesEncoder.encode_json(sample, ts_key = "UTC", ts_value = "Value", sort_values = True, encoding_size=64, gzip=True)
+    encoded = TimeSeriesEncoder.encode_json(get_sample_file(), ts_key = "UTC", ts_value = "Value", sort_values = True, encoding_size=64, gzip=True)
     with open ("./tests/encoded.gzip", "wb") as ofile:
         ofile.write(encoded)
-    encoded = TimeSeriesEncoder.encode_json(sample, ts_key = "UTC", ts_value = "Value", sort_values = True, encoding_size=64, gzip=False)
+    encoded = TimeSeriesEncoder.encode_json(get_sample_file(), ts_key = "UTC", ts_value = "Value", sort_values = True, encoding_size=64, gzip=False)
     with open ("./tests/encoded.json", "w") as ofile:
         ofile.write(json.dumps(encoded, cls=NumpyEncoder))
     with open ("./tests/encoded.gzip", "rb") as ifile:
         bytes = ifile.read()
         decoded = TimeSeriesEncoder.decode_json(bytes, gzip=True)
-        assert decoded == sortvalues(deepcopy(sample), 'UTC')
+        assert decoded == sortvalues(get_sample_file(), 'UTC')
 
 def sortvalues(json, time_key):
     if type(json) == dict:
@@ -246,6 +246,39 @@ def sortvalues(json, time_key):
         return json
     else:
         return json
+
+def test_static_value_zero():
+    sample = get_sample()
+    for x, y in enumerate(sample):
+        if y == "Values":
+            for i, packet in enumerate(sample[y]):
+                sample[y][i]["Value"] = 0.0
+    encoded = TimeSeriesEncoder.encode_json(sample, ts_key="UTC", ts_value="Value", sort_values=True, encoding_size=64)
+    assert "data" not in encoded["Values"]
+    assert "static" in encoded["Values"]
+
+def test_static_value_nonzero():
+    sample = get_sample()
+    for x, y in enumerate(sample):
+        if y == "Values":
+            for i, packet in enumerate(sample[y]):
+                sample[y][i]["Value"] = 400.0
+    encoded = TimeSeriesEncoder.encode_json(sample, ts_key="UTC", ts_value="Value", sort_values=True, encoding_size=64)
+    assert "data" not in encoded["Values"]
+    assert "static" in encoded["Values"]
+
+def test_static_value_neg_nonzero():
+    sample = get_sample()
+    for x, y in enumerate(sample):
+        if y == "Values":
+            for i, packet in enumerate(sample[y]):
+                sample[y][i]["Value"] = -400.0
+    encoded = TimeSeriesEncoder.encode_json(sample, ts_key="UTC", ts_value="Value", sort_values=True, encoding_size=64)
+    assert "data" not in encoded["Values"]
+    assert "static" in encoded["Values"]
+
+
+
 
 def get_encoded_sample_unsorted_base91():
     import json

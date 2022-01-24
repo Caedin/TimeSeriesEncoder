@@ -3,10 +3,21 @@ import pytest
 import numpy as np
 
 def runner(encoder, verbose=False):
-    if encoder.numeric_type == 'float': 
-        c = np.arange(encoder.min_value, encoder.max_value, 10 ** (-1 * encoder.float_precision)).round(encoder.float_precision)
+    if encoder.signed:
+        min_state = encoder.get_max_state() * -1
     else:
-        c = np.arange(encoder.min_value, encoder.max_value, 1).round(encoder.float_precision)
+        min_state = 0
+    if encoder.numeric_type == 'float':
+        max_value = encoder.get_max_state() / (10 ** encoder.float_precision)
+        min_value = min_state / (10 ** encoder.float_precision)
+    else:
+        max_value = encoder.get_max_state()
+        min_value = min_state
+
+    if encoder.numeric_type == 'float': 
+        c = np.arange(min_value, max_value, 10 ** (-1 * encoder.float_precision)).round(encoder.float_precision)
+    else:
+        c = np.arange(min_value, max_value, 1).round(encoder.float_precision)
 
     encoded = encoder.encode(c)
     result = encoder.decode(encoded)
@@ -79,67 +90,67 @@ def test_all():
             runner(encoder)
 
 def test_base16():
-    character_set = NumericEncoder.get_base_16()
-    encoder = NumericEncoder(signed = True, encoding_depth = 3, numeric_type = 'int', character_set = character_set)
+    encoding_size = 16
+    encoder = NumericEncoder(signed = True, encoding_depth = 3, numeric_type = 'int', encoding_size = encoding_size)
     runner(encoder)
-    encoder = NumericEncoder(signed = True, encoding_depth = 1, numeric_type = 'int', character_set = character_set)
-    runner(encoder)
-
-    encoder = NumericEncoder(signed = False, encoding_depth = 1, numeric_type = 'int', character_set = character_set)
+    encoder = NumericEncoder(signed = True, encoding_depth = 1, numeric_type = 'int', encoding_size = encoding_size)
     runner(encoder)
 
-    encoder = NumericEncoder(signed = True, encoding_depth = 1, numeric_type = 'float', float_precision = 1, character_set = character_set)
+    encoder = NumericEncoder(signed = False, encoding_depth = 1, numeric_type = 'int', encoding_size = encoding_size)
     runner(encoder)
 
-    encoder = NumericEncoder(signed = False, encoding_depth = 1, numeric_type = 'float', float_precision = 1, character_set = character_set)
+    encoder = NumericEncoder(signed = True, encoding_depth = 1, numeric_type = 'float', float_precision = 1, encoding_size = encoding_size)
     runner(encoder)
 
-    encoder = NumericEncoder(signed = True, encoding_depth = 1, numeric_type = 'float', float_precision = 2, character_set = character_set)
+    encoder = NumericEncoder(signed = False, encoding_depth = 1, numeric_type = 'float', float_precision = 1, encoding_size = encoding_size)
     runner(encoder)
 
-    encoder = NumericEncoder(signed = False, encoding_depth = 1, numeric_type = 'float', float_precision = 2, character_set = character_set)
+    encoder = NumericEncoder(signed = True, encoding_depth = 1, numeric_type = 'float', float_precision = 2, encoding_size = encoding_size)
+    runner(encoder)
+
+    encoder = NumericEncoder(signed = False, encoding_depth = 1, numeric_type = 'float', float_precision = 2, encoding_size = encoding_size)
     runner(encoder)
 
 def test_base64():
-    character_set = NumericEncoder.get_base_64()
-    encoder = NumericEncoder(signed = True, encoding_depth = 3, numeric_type = 'int', character_set = character_set)
+    encoding_size = 64
+    encoder = NumericEncoder(signed = True, encoding_depth = 3, numeric_type = 'int', encoding_size = encoding_size)
     runner(encoder)
-    encoder = NumericEncoder(signed = True, encoding_depth = 1, numeric_type = 'int', character_set = character_set)
-    runner(encoder)
-
-    encoder = NumericEncoder(signed = False, encoding_depth = 1, numeric_type = 'int', character_set = character_set)
+    encoder = NumericEncoder(signed = True, encoding_depth = 1, numeric_type = 'int', encoding_size = encoding_size)
     runner(encoder)
 
-    encoder = NumericEncoder(signed = True, encoding_depth = 1, numeric_type = 'float', float_precision = 1, character_set = character_set)
+    encoder = NumericEncoder(signed = False, encoding_depth = 1, numeric_type = 'int', encoding_size = encoding_size)
     runner(encoder)
 
-    encoder = NumericEncoder(signed = False, encoding_depth = 1, numeric_type = 'float', float_precision = 1, character_set = character_set)
+    encoder = NumericEncoder(signed = True, encoding_depth = 1, numeric_type = 'float', float_precision = 1, encoding_size = encoding_size)
     runner(encoder)
 
-    encoder = NumericEncoder(signed = True, encoding_depth = 1, numeric_type = 'float', float_precision = 2, character_set = character_set)
+    encoder = NumericEncoder(signed = False, encoding_depth = 1, numeric_type = 'float', float_precision = 1, encoding_size = encoding_size)
     runner(encoder)
 
-    encoder = NumericEncoder(signed = False, encoding_depth = 1, numeric_type = 'float', float_precision = 2, character_set = character_set)
+    encoder = NumericEncoder(signed = True, encoding_depth = 1, numeric_type = 'float', float_precision = 2, encoding_size = encoding_size)
+    runner(encoder)
+
+    encoder = NumericEncoder(signed = False, encoding_depth = 1, numeric_type = 'float', float_precision = 2, encoding_size = encoding_size)
     runner(encoder)
 
 def test_base91():
-    character_set = NumericEncoder.get_base_91()
-    encoder = NumericEncoder(signed = True, encoding_depth = 1, numeric_type = 'int', character_set = character_set)
+    encoding_size = 91
+    encoder = NumericEncoder(signed = True, encoding_depth = 1, numeric_type = 'int', encoding_size = encoding_size)
     runner(encoder)
-    encoder = NumericEncoder(signed = True, encoding_depth = 1, numeric_type = 'int', character_set = character_set)
-    runner(encoder)
-
-    encoder = NumericEncoder(signed = False, encoding_depth = 1, numeric_type = 'int', character_set = character_set)
+    encoder = NumericEncoder(signed = True, encoding_depth = 1, numeric_type = 'int', encoding_size = encoding_size)
     runner(encoder)
 
-    encoder = NumericEncoder(signed = True, encoding_depth = 1, numeric_type = 'float', float_precision = 1, character_set = character_set)
+    encoder = NumericEncoder(signed = False, encoding_depth = 1, numeric_type = 'int', encoding_size = encoding_size)
     runner(encoder)
 
-    encoder = NumericEncoder(signed = False, encoding_depth = 1, numeric_type = 'float', float_precision = 1, character_set = character_set)
+    encoder = NumericEncoder(signed = True, encoding_depth = 1, numeric_type = 'float', float_precision = 1, encoding_size = encoding_size)
     runner(encoder)
 
-    encoder = NumericEncoder(signed = True, encoding_depth = 1, numeric_type = 'float', float_precision = 2, character_set = character_set)
+    encoder = NumericEncoder(signed = False, encoding_depth = 1, numeric_type = 'float', float_precision = 1, encoding_size = encoding_size)
     runner(encoder)
 
-    encoder = NumericEncoder(signed = False, encoding_depth = 1, numeric_type = 'float', float_precision = 2, character_set = character_set)
+    encoder = NumericEncoder(signed = True, encoding_depth = 1, numeric_type = 'float', float_precision = 2, encoding_size = encoding_size)
+    runner(encoder)
+
+    encoder = NumericEncoder(signed = False, encoding_depth = 1, numeric_type = 'float', float_precision = 2, encoding_size = encoding_size)
     runner(encoder)

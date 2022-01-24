@@ -84,5 +84,6 @@ def test_get_speed():
 
     df = pd.concat(rows)
     df.columns=["Function", "Sort", "Size", "Zip", "Time"]
+    df = df.sort_values(by="Time")
     s = df.to_csv(index=False)
     print(s)

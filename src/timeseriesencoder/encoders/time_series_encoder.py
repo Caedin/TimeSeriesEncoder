@@ -1,11 +1,10 @@
 
+import copy
 import ciso8601
 from .numeric_encoder import NumericEncoder
 import numpy as np
 import datetime
-from copy import deepcopy
 import gzip
-import base64
 import json
 from numpyencoder import NumpyEncoder
 
@@ -38,28 +37,24 @@ class TimeSeriesEncoder:
         return gzip.decompress(bytes_obj).decode()
 
     @staticmethod
-    def get_character_set(encoding_size):
-        # Check encoding size
-        if encoding_size == 16:
-            character_set = NumericEncoder.get_base_16()
-        elif encoding_size == 64:
-            character_set = NumericEncoder.get_base_64()
-        elif encoding_size == 91:
-            character_set = NumericEncoder.get_base_91()
-        else:
-            raise ValueError(f'Unsupported encoding size: {encoding_size}, currently we only support base 16, 64, and 90.')
-        return character_set
-
-    @staticmethod
     def encode_json(json_data, ts_key, ts_value, sort_values = False, encoding_size = 64, inplace=False, gzip=False):
         if inplace == False:
-            json_data = deepcopy(json_data)
+            json_data = copy.copy(json_data)
         encoded = TimeSeriesEncoder._encode_json(json_data, ts_key, ts_value, sort_values, encoding_size)
         if gzip:
             jstr = json.dumps(encoded, cls=NumpyEncoder)
             bytes = TimeSeriesEncoder.gzip_str(jstr)
             return bytes
         return encoded
+
+
+    @staticmethod
+    def encode_csv(csv, time_column, key_columns, sort_values = False, encoding_size = 64, gzip=False):
+        return csv
+
+    @staticmethod
+    def decode_csv(encoded_data, gzip=False):
+        return encoded_data
             
     @staticmethod
     def decode_json(json_data, inplace=False, gzip=False):
@@ -68,7 +63,7 @@ class TimeSeriesEncoder:
             json_data = json.loads(json_data)
 
         if inplace == False and gzip == False:
-            json_data = deepcopy(json_data)
+            json_data = copy.copy(json_data)
         decoded = TimeSeriesEncoder._decode_json(json_data)
         return decoded
 
@@ -92,39 +87,12 @@ class TimeSeriesEncoder:
                 for i, j in enumerate(json_data):
                     json_data[i] = TimeSeriesEncoder._encode_json(j, ts_key, ts_value, sort_values, encoding_size)
             else:
-                if sort_values:
-                    json_data.sort(key = lambda x: x[ts_key])
-
-                encoder = TimeSeriesEncoder(json_data, encoding_size = encoding_size)
-
-                # Add encoded information to the json
-                json_data = {
-                    "encoder" : "TimeSeriesEncoder",
-                    "start" : encoder.start,
-                    "ts_key": ts_key,
-                    "ts_value": ts_value,
-                    "encoding_size": encoding_size,
-                    "data" : encoder.encode(json_data)
-                }
-
-                # Add encoding metadata for decoding later
-                if encoder.regular:
-                    json_data['interval'] = encoder.interval
-                else:
-                    json_data['time_encoding_depth'] = encoder.timeEncoder.encoding_depth
-                
-                if encoder.static is not None:
-                    json_data['static_value'] = encoder.static['value']
-                    json_data['static_count'] = encoder.static['count']
-                    
-                    if encoder.regular:
-                        del json_data['data']
-                        del json_data['encoding_size']
-                else:
-                    json_data["encoding_depth"] = encoder.encoder.encoding_depth
-                    json_data["float_precision"] = encoder.encoder.float_precision
-                    json_data["signed"] = encoder.encoder.signed
-            
+                encoder = TimeSeriesEncoder(json_data, ts_key=ts_key, ts_value=ts_value, sort_values=sort_values, encoding_size = encoding_size)
+                encoded_json = TimeSeriesEncoder.serialize(encoder)
+                encoded_data = encoder.encode(json_data)
+                if len(encoded_data) > 0:
+                    encoded_json["data"] = encoded_data
+                json_data = encoded_json
             return json_data
         else:
             return json_data
@@ -138,40 +106,15 @@ class TimeSeriesEncoder:
             return json_data
         else:
             encoded_ts = False
-            if 'encoder' in json_data:
-                if json_data['encoder'] == 'TimeSeriesEncoder':
-                    encoded_ts = True
+            if 'encoding_start' in json_data:
+                encoded_ts = True
                     
             if encoded_ts == False:
                 for k in json_data:
                     json_data[k] = TimeSeriesEncoder._decode_json(json_data[k])
                 return json_data
             else:
-                encoder = TimeSeriesEncoder()
-                encoder.start = json_data['start']
-                encoder.ts_key = json_data['ts_key']
-                encoder.ts_value = json_data['ts_value']
-
-                if 'static_value' not in json_data:
-                    character_set = TimeSeriesEncoder.get_character_set(json_data['encoding_size'])
-                    encoder.signed = json_data['signed']
-                    if json_data['float_precision'] == 0:
-                        numeric_type = 'int'
-                    else:
-                        numeric_type = 'float'
-
-                    encoder.encoder = NumericEncoder(encoding_depth = json_data['encoding_depth'], signed=json_data['signed'], numeric_type=numeric_type, float_precision=json_data['float_precision'], character_set = character_set)
-                else:
-                    encoder.static = { 'value' : json_data['static_value'], 'count' : json_data['static_count']}
-
-                if 'time_encoding_depth' in json_data:
-                    character_set = TimeSeriesEncoder.get_character_set(json_data['encoding_size'])
-                    encoder.timeEncoder = NumericEncoder(encoding_depth = json_data['time_encoding_depth'], signed=False, numeric_type='int', character_set = character_set)
-                    encoder.regular = False
-                else:
-                    encoder.regular = True
-                    encoder.interval = json_data['interval']
-
+                encoder = TimeSeriesEncoder.deserialize(json_data)
                 if 'data' in json_data:
                     json_data = encoder.decode(json_data['data'])
                 else:
@@ -179,21 +122,19 @@ class TimeSeriesEncoder:
                 return json_data
 
 
-    def __init__(self, timeseries = None, encoding_size = 64):
+    def __init__(self, timeseries = None, ts_key='UTC', ts_value='Value', sort_values=False, encoding_size = 64):
         # Save raw timeseries
         self.timeseries = timeseries
         self.encoding_size = encoding_size
-        self.ts_key = 'UTC'
-        self.ts_value = 'Value'
+        self.ts_key = ts_key
+        self.ts_value = ts_value
+        self.sort_values = sort_values
         self.static = None
 
         if timeseries is not None:
-            # Check encoding size
-            character_set = TimeSeriesEncoder.get_character_set(encoding_size)
-
             # Create the optimal encoder
             self.np_timeseries = self.get_np_timeseries(timeseries)
-            self.start = np.min(self.np_timeseries[0, 0])
+            self.encoding_start = np.min(self.np_timeseries[0, 0])
 
             # Determine regularity of data
             gaps = np.diff(self.np_timeseries[:, 0], axis=0)
@@ -203,51 +144,54 @@ class TimeSeriesEncoder:
                 self.interval = gaps[0]
             else:
                 self.regular = False
-                offsets = self.np_timeseries[:, 0] - self.start
+                offsets = self.np_timeseries[:, 0] - self.encoding_start
                 largest_offset = np.max(offsets)
 
                 timebitsize = 0
                 while largest_offset >= 1:
                     largest_offset /= encoding_size
                     timebitsize += 1
+                
+                self.timeEncoder = NumericEncoder(encoding_depth = timebitsize, signed=False, numeric_type='int', encoding_size=encoding_size)
 
             # Determine value bounds
             values = self.np_timeseries[:, 1]
-            max_value = np.max(values)
-            min_value = np.min(values)
 
             # Determine data precision
-            longest_input_length = len(values.astype(np.str_)[np.argmax(values.astype(np.str_))])
-            maximum_precision = precision_and_scale_np(values, longest_input_length)
-
-            max_value = max(abs(max_value), abs(min_value))
-
-            signed = False
-            if min_value < 0:
-                signed = True
-                max_value *= 2
-
-            if maximum_precision == 0:
-                numeric_type = 'int'
-            else:
-                numeric_type = 'float'
-                max_value *= 10 ** maximum_precision
-
-            valuebitsize = 0
-            while max_value >= 1:
-                max_value /= encoding_size
-                valuebitsize += 1
-
-            # Create encoders
-            if self.regular == False:
-                self.timeEncoder = NumericEncoder(encoding_depth = timebitsize, signed=False, numeric_type='int', character_set = character_set)
-
-            if valuebitsize != 0:
-                self.encoder = NumericEncoder(encoding_depth = valuebitsize, signed=signed, numeric_type=numeric_type, float_precision=maximum_precision, character_set = character_set)
-            else:
+            if np.std(values) == 0:
+                # Series is static
                 self.static = {}
-                self.static['value'] = max_value.item()
+                self.static['value'] = values[0].item()
                 self.static['count'] = self.np_timeseries.shape[0]
+            else:
+                # Determine data precision
+                longest_input_length = len(values.astype(np.str_)[np.argmax(values.astype(np.str_))])
+                maximum_precision = precision_and_scale_np(values, longest_input_length)
+
+                max_value = np.max(values)
+                min_value = np.min(values)
+
+                max_value = max(abs(max_value), abs(min_value))
+
+                if maximum_precision == 0:
+                    numeric_type = 'int'
+                else:
+                    numeric_type = 'float'
+                    max_value *= 10 ** maximum_precision
+
+                signed = False
+                if min_value < 0:
+                    signed = True
+                    max_value *= 2
+
+                valuebitsize = 0
+                while max_value >= 1:
+                    max_value /= encoding_size
+                    valuebitsize += 1
+
+                if valuebitsize != 0:
+                    self.encoder = NumericEncoder(encoding_depth = valuebitsize, signed=signed, numeric_type=numeric_type, float_precision=maximum_precision, encoding_size=encoding_size)
+
 
     def get_np_timeseries(self, timeseries):
         raw = np.zeros((len(timeseries), 2))
@@ -255,6 +199,9 @@ class TimeSeriesEncoder:
             unix_time = ciso8601.parse_datetime(k['UTC']).timestamp()
             raw[i][0] = unix_time
             raw[i][1] = k['Value']
+
+        if self.sort_values:
+            raw = raw[raw[:, 0].argsort()]
         return raw
 
     def encode(self, timeseries):
@@ -263,7 +210,10 @@ class TimeSeriesEncoder:
 
         if self.regular == False:
             data = np.copy(raw)
-            data[:, 0] = data[:, 0] - self.start
+            if self.sort_values:
+                data[:, 0] = np.insert(np.diff(data[:, 0], axis=0), 0, 0)
+            else:
+                data[:, 0] = data[:, 0] - self.encoding_start
 
             encoded_time = self.timeEncoder.encode(data[:, 0])
             if self.static is None:
@@ -314,7 +264,7 @@ class TimeSeriesEncoder:
         decoded = self.timeEncoder.decode(data)
         json_values = [''] * len(decoded)
         for i, datum in enumerate(decoded):
-            timestamp = datum + self.start
+            timestamp = datum + self.encoding_start
             utc = datetime.datetime.utcfromtimestamp(timestamp)
             json_values[i] = {
                 self.ts_key: '%02d-%02d-%02dT%02d:%02d:%02dZ' % (utc.year, utc.month, utc.day, utc.hour, utc.minute, utc.second),
@@ -335,7 +285,7 @@ class TimeSeriesEncoder:
 
         json_values = [''] * len(decoded_words)
         for i, (o, w) in enumerate(zip(decoded_offsets, decoded_words)):
-            timestamp = o + self.start
+            timestamp = o + self.encoding_start
             utc = datetime.datetime.utcfromtimestamp(timestamp)
             json_values[i] = {
                 self.ts_key: '%02d-%02d-%02dT%02d:%02d:%02dZ' % (utc.year, utc.month, utc.day, utc.hour, utc.minute, utc.second),
@@ -346,15 +296,65 @@ class TimeSeriesEncoder:
     def decode(self, data = None):
         if self.regular == True:
             if self.static is None:
-                json_values = self.__decode_regular(data, self.start)
+                json_values = self.__decode_regular(data, self.encoding_start)
             else:
-                json_values = self.__decode_regular_static(self.start)
+                json_values = self.__decode_regular_static(self.encoding_start)
         else:
             if self.static is None:
                 json_values = self.__decode_nonregular(data)
             else:
                 json_values = self.__decode_nonregular_static(data)
         return json_values
+
+    @staticmethod
+    def serialize(tse):
+        vsl = copy.copy(tse.__dict__)
+        if "timeseries" in vsl:
+            del vsl["timeseries"]
+        if "np_timeseries" in vsl:
+            del vsl["np_timeseries"]
+        if "encoder" in vsl:
+            vsl["encoder"] = NumericEncoder.serialize(vsl["encoder"])
+        if "timeEncoder" in vsl:
+            vsl["timeEncoder"] = NumericEncoder.serialize(vsl["timeEncoder"])
+        if vsl["static"] is None:
+            del vsl["static"]
+        if vsl["regular"] == True:
+            del vsl["regular"]
+        if vsl["encoding_size"] == 64:
+            del vsl["encoding_size"]
+        if vsl["sort_values"] == True:
+            del vsl["sort_values"]
+        return vsl
+
+    @staticmethod
+    def deserialize(msg):
+        tse = TimeSeriesEncoder()
+        tse.ts_key = msg["ts_key"]
+        tse.ts_value = msg["ts_value"]
+        if "sort_values" in msg:
+            tse.sort_values = msg["sort_values"]
+        else:
+            tse.sort_values = True
+        if "encoding_size" in msg:
+            tse.encoding_size = msg["encoding_size"]
+        else:
+            tse.encoding_size = 64
+        tse.encoding_start = msg["encoding_start"]
+        if "static" in msg:
+            tse.static = msg["static"]
+        if "interval" in msg:
+            tse.interval = msg["interval"]
+        if "regular" in msg:
+            tse.regular = msg["regular"]
+        else:
+            tse.regular = True
+
+        if "encoder" in msg:
+            tse.encoder = NumericEncoder.deserialize(msg["encoder"])
+        if "timeEncoder" in msg:
+            tse.timeEncoder = NumericEncoder.deserialize(msg["timeEncoder"])
+        return tse
 
 if __name__ == '__main__':
     pass
