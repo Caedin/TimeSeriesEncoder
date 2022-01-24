@@ -33,26 +33,33 @@ class NumericEncoder:
         msg = copy.copy(encoder.__dict__)
         del msg["encoding_table"]
         del msg["decoding_table"]
-        if msg["signed"] == False:
-            del msg["signed"]
-        if msg["encoding_size"] == 64:
-            del msg["encoding_size"]
+
+        defaults = {
+            "signed" : False,
+            "encoding_size" : 64
+        }
+
+        for key in defaults:
+            if msg[key] == defaults[key]:
+                del msg[key]
         return msg
 
     @staticmethod
     def deserialize(msg):
-        signed = False
-        encoding_size = 64
-        if "signed" in msg:
-            signed = msg["signed"]
-        if "encoding_size" in msg:
-            encoding_size = msg["encoding_size"]
+        defaults = {
+            "signed" : False,
+            "encoding_size" : 64
+        }
+
+        for key in defaults:
+            msg[key] = msg.get(key) or defaults[key]
+
         encoder = NumericEncoder(
             numeric_type=msg["numeric_type"], 
             float_precision=msg["float_precision"], 
-            signed=signed, 
+            signed=msg["signed"], 
             encoding_depth=msg["encoding_depth"], 
-            encoding_size=encoding_size
+            encoding_size= msg["encoding_size"]
         )
         return encoder
 

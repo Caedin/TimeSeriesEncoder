@@ -309,6 +309,13 @@ class TimeSeriesEncoder:
     @staticmethod
     def serialize(tse):
         vsl = copy.copy(tse.__dict__)
+        defaults = {
+            "static" : None,
+            "regular" : True,
+            "encoding_size": 64,
+            "sort_values": True
+        }
+
         if "timeseries" in vsl:
             del vsl["timeseries"]
         if "np_timeseries" in vsl:
@@ -317,38 +324,28 @@ class TimeSeriesEncoder:
             vsl["encoder"] = NumericEncoder.serialize(vsl["encoder"])
         if "timeEncoder" in vsl:
             vsl["timeEncoder"] = NumericEncoder.serialize(vsl["timeEncoder"])
-        if vsl["static"] is None:
-            del vsl["static"]
-        if vsl["regular"] == True:
-            del vsl["regular"]
-        if vsl["encoding_size"] == 64:
-            del vsl["encoding_size"]
-        if vsl["sort_values"] == True:
-            del vsl["sort_values"]
+
+        for key in defaults:
+            if vsl[key] == defaults[key]:
+                del vsl[key]
         return vsl
 
     @staticmethod
     def deserialize(msg):
+        defaults = {
+            "static" : None,
+            "encoding_size": 64,
+            "sort_values": True
+        }
+        
+        for key in defaults:
+            msg[key] = msg.get(key) or defaults[key]
+
         tse = TimeSeriesEncoder()
-        tse.ts_key = msg["ts_key"]
-        tse.ts_value = msg["ts_value"]
-        if "sort_values" in msg:
-            tse.sort_values = msg["sort_values"]
-        else:
-            tse.sort_values = True
-        if "encoding_size" in msg:
-            tse.encoding_size = msg["encoding_size"]
-        else:
-            tse.encoding_size = 64
-        tse.encoding_start = msg["encoding_start"]
-        if "static" in msg:
-            tse.static = msg["static"]
-        if "interval" in msg:
-            tse.interval = msg["interval"]
-        if "regular" in msg:
-            tse.regular = msg["regular"]
-        else:
-            tse.regular = True
+        for key in msg:
+            tse.__dict__[key] = msg[key]
+
+        tse.regular = ("interval" in msg)
 
         if "encoder" in msg:
             tse.encoder = NumericEncoder.deserialize(msg["encoder"])
