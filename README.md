@@ -43,6 +43,11 @@ Additionally, non time series data will be encoded in CSV files as able. Static 
     - Migrated JSON function from TimeSeriesEncoder to JSONEncoder, which extends TimeSeriesEncoder
     - Fixed a few bugs, added more tests
 
+## 0.1.17
+
+    - Added gzip compression as an optional output for all encoding and decoding calls
+    - Added tests for gzip
+
 
 # Tests
 To run tests call pytests on the tests folder from the base package folder.
@@ -82,14 +87,14 @@ Size before and after encoding. Encoding reduced package size by 10x.
 
 ![image](https://user-images.githubusercontent.com/8877753/115103478-d023bf80-9f17-11eb-9681-b03835097da1.png)
 
-In 0.1.2 the optional gzip parameter was added to encode_json and decode_json. This allows the final package to be smaller, which allows for lower data size for sending across networks, or storing in a cache system like Redis.
+In 0.1.17 the optional gzip parameter was added to encode_json and decode_json. This allows the final package to be smaller, which allows for lower data size for sending across networks, or storing in a cache system like Redis.
 
 ![image](https://user-images.githubusercontent.com/8877753/150624141-81691e29-2004-4444-831c-802c52754fa9.jpeg)
 
 The raw sample.json had a size of 281KB. 
 The encoded json that is output from the program that is sorted and is using base64 style encoding is 27KB. 
 The raw zipped sample.json is 26KB
-The programs gzipped, encoded file is just 11KB. This is nearly 1/3rd the size of the regular zip file, and just 1/25th of the original data size.
+The programs gzipped, encoded file is just 8KB. This is 1/3rd the size of the regular zip file, and just 1/35th of the original data size.
 
 Data
 Output
