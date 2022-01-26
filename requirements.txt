@@ -1,3 +1,5 @@
 ciso8601
 numpy
 numpyencoder
+pandas
+sklearn

@@ -11,8 +11,7 @@ class NumericEncoder:
         self.encoding_depth = encoding_depth or 1
         self.float_precision = float_precision or 0
         self.signed = signed or False
-        self.encoding_size = 0
-        self.encoding_size = encoding_size
+        self.encoding_size = encoding_size or 64
 
         # Default to base64, but accept an input character set
         self.set_encoding_character_set(self.encoding_size)
@@ -42,6 +41,10 @@ class NumericEncoder:
         for key in defaults:
             if msg[key] == defaults[key]:
                 del msg[key]
+
+        for key in msg:
+            if isinstance(msg[key], np.generic):
+                msg[key] = msg[key].item()
         return msg
 
     @staticmethod

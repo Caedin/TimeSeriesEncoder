@@ -1,5 +1,5 @@
 import pytest
-from src.timeseriesencoder  import TimeSeriesEncoder
+from src.timeseriesencoder  import TimeSeriesEncoder, JSONEncoder
 from copy import deepcopy
 from numpyencoder import NumpyEncoder
 import json
@@ -40,28 +40,28 @@ def evalWithTime(f):
 
 
 def test_16bit_speed():
-    assert sample == TimeSeriesEncoder.decode_json(TimeSeriesEncoder.encode_json(sample_copy, ts_key = 'UTC', ts_value = 'Value', sort_values = False, encoding_size = 16)) 
+    assert sample == JSONEncoder.decode_json(JSONEncoder.encode_json(sample_copy, ts_key = 'UTC', ts_value = 'Value', sort_values = False, encoding_size = 16)) 
 
 def test_64bit_speed():
-    assert sample == TimeSeriesEncoder.decode_json(TimeSeriesEncoder.encode_json(sample_copy, ts_key = 'UTC', ts_value = 'Value', sort_values = False, encoding_size = 64)) 
+    assert sample == JSONEncoder.decode_json(JSONEncoder.encode_json(sample_copy, ts_key = 'UTC', ts_value = 'Value', sort_values = False, encoding_size = 64)) 
 
 def test_91bit_speed():
-    assert sample == TimeSeriesEncoder.decode_json(TimeSeriesEncoder.encode_json(sample_copy, ts_key = 'UTC', ts_value = 'Value', sort_values = False, encoding_size = 91)) 
+    assert sample == JSONEncoder.decode_json(JSONEncoder.encode_json(sample_copy, ts_key = 'UTC', ts_value = 'Value', sort_values = False, encoding_size = 91)) 
 
 
 def test_16bit_speed_sorted():
-    assert sample_sorted == TimeSeriesEncoder.decode_json(TimeSeriesEncoder.encode_json(deepcopy(sample_sorted), ts_key = 'UTC', ts_value = 'Value', sort_values = True, encoding_size = 16))
+    assert sample_sorted == JSONEncoder.decode_json(JSONEncoder.encode_json(deepcopy(sample_sorted), ts_key = 'UTC', ts_value = 'Value', sort_values = True, encoding_size = 16))
 
 def test_64bit_speed_sorted():
-    assert sample_sorted == TimeSeriesEncoder.decode_json(TimeSeriesEncoder.encode_json(deepcopy(sample_sorted), ts_key = 'UTC', ts_value = 'Value', sort_values = True, encoding_size = 64)) 
+    assert sample_sorted == JSONEncoder.decode_json(JSONEncoder.encode_json(deepcopy(sample_sorted), ts_key = 'UTC', ts_value = 'Value', sort_values = True, encoding_size = 64)) 
 
 def test_91bit_speed_sorted():
-    assert sample_sorted == TimeSeriesEncoder.decode_json(TimeSeriesEncoder.encode_json(deepcopy(sample_sorted), ts_key = 'UTC', ts_value = 'Value', sort_values = True, encoding_size = 91))
+    assert sample_sorted == JSONEncoder.decode_json(JSONEncoder.encode_json(deepcopy(sample_sorted), ts_key = 'UTC', ts_value = 'Value', sort_values = True, encoding_size = 91))
 
 if __name__ == '__main__':
     import cProfile, pstats
     with cProfile.Profile() as pr:
-        assert sample == TimeSeriesEncoder.decode_json(TimeSeriesEncoder.encode_json(sample_copy, ts_key = 'UTC', ts_value = 'Value', sort_values = False, encoding_size = 91)) 
+        assert sample == JSONEncoder.decode_json(JSONEncoder.encode_json(sample_copy, ts_key = 'UTC', ts_value = 'Value', sort_values = False, encoding_size = 91)) 
 
     from pstats import SortKey
     ps = pstats.Stats(pr).sort_stats(SortKey.CUMULATIVE)
@@ -74,8 +74,7 @@ def test_get_speed():
         for k in [16,64,91]:
             for z in [True, False]:
                 encoded = None
-                for f in [TimeSeriesEncoder.encode_json, TimeSeriesEncoder.decode_json]:
-                    key = f"Function: {f.__name__}, Sort: {s}, Size: {k}, Zip: {z}"
+                for f in [JSONEncoder.encode_json, JSONEncoder.decode_json]:
                     if encoded is None:
                         encoded, t = evalWithTime(lambda: f(sample, ts_key = 'UTC', ts_value = 'Value', sort_values = s, encoding_size = k, gzip=z))
                     else:

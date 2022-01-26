@@ -1,7 +1,9 @@
 from copy import deepcopy
 from numpyencoder import NumpyEncoder
+import json
+import numpy as np
 
-from src.timeseriesencoder import TimeSeriesEncoder
+from src.timeseriesencoder import JSONEncoder
 import sys
 
 def get_size(obj, seen=None):
@@ -24,73 +26,211 @@ def get_size(obj, seen=None):
         size += sum([get_size(i, seen) for i in obj])
     return size
 
-def test_base_64():
+def test_encode_decode_json_all_sizes():
+    sample = get_sample_file()
+    sample_sorted = sortvalues(deepcopy(sample), 'UTC')
+    sort_values = [True, False]
+    encoding_sizes = [16, 64, 91]
+    for k in sort_values:
+        for s in encoding_sizes:
+            if k == True:
+                assert sample_sorted == JSONEncoder.decode_json(JSONEncoder.encode_json(deepcopy(sample), ts_key = 'UTC', ts_value = 'Value', sort_values = k, encoding_size = s))
+            else:
+                encoded = JSONEncoder.encode_json(deepcopy(sample), ts_key = 'UTC', ts_value = 'Value', sort_values = k, encoding_size = s)
+                decoded = JSONEncoder.decode_json(encoded)
+                try:
+                    assert sample == decoded
+                except AssertionError:
+                    print(encoded)
+                    raise
+
+def test_encode_decode_json_all_sizes_gzip():
+    sample = get_sample_file()
+    sample_sorted = sortvalues(deepcopy(sample), 'UTC')
+    sort_values = [True, False]
+    encoding_sizes = [16, 64, 91]
+    for k in sort_values:
+        for s in encoding_sizes:
+            if k == True:
+                encoded = JSONEncoder.encode_json(deepcopy(sample), ts_key = 'UTC', ts_value = 'Value', sort_values = k, encoding_size = s, gzip=True)
+                decoded = JSONEncoder.decode_json(encoded, gzip=True)
+                assert sample_sorted == decoded
+            else:
+                encoded = JSONEncoder.encode_json(deepcopy(sample), ts_key = 'UTC', ts_value = 'Value', sort_values = k, encoding_size = s, gzip=True)
+                decoded = JSONEncoder.decode_json(encoded, gzip=True)
+                try:
+                    assert sample == decoded
+                except AssertionError:
+                    print(encoded)
+                    raise
+
+
+def test_sizes_gzip():
+    sample = get_sample_file()
+    sample_sorted = sortvalues(deepcopy(sample), 'UTC')
+    sort_values = [True, False]
+    encoding_sizes = [16, 64, 91]
+    sizes = { "Raw" : get_size(sample), "Raw Sorted" : get_size(sample_sorted)}
+    for k in sort_values:
+        for s in encoding_sizes:
+            for z in [True, False]:
+                if k == True:
+                    encoded = JSONEncoder.encode_json(deepcopy(sample), ts_key = 'UTC', ts_value = 'Value', sort_values = k, encoding_size = s, gzip=z)
+                    decoded = JSONEncoder.decode_json(encoded, gzip=z)
+                    sizes[f"Sorted: {k}, Encoding_Size: {s}, Gzip: {z}"] = get_size(encoded)
+                    assert sample_sorted == decoded
+                else:
+                    encoded = JSONEncoder.encode_json(deepcopy(sample), ts_key = 'UTC', ts_value = 'Value', sort_values = k, encoding_size = s, gzip=z)
+                    decoded = JSONEncoder.decode_json(encoded, gzip=z)
+                    sizes[f"Sorted: {k}, Encoding_Size: {s}, Gzip: {z}"] = get_size(encoded)
+                    try:
+                        assert sample == decoded
+                    except AssertionError:
+                        print(encoded)
+                        raise
+    for k in sizes:
+        if k == "Raw" or k == "Raw Sorted":
+            continue
+        assert sizes[k] < sizes["Raw"]
+
+def check_numpy_types(obj):
+    if isinstance(obj, np.generic):
+        return True
+    elif type(obj) == dict:
+        numpyFound = False
+        for key in obj:
+            numpyFound = numpyFound or check_numpy_types(obj[key])
+        return numpyFound
+    elif type(obj) == list:
+        numpyFound = False
+        for i, _ in enumerate(obj):
+            numpyFound = numpyFound or check_numpy_types(obj[i])
+        return numpyFound
+    else:
+        return False
+
+def get_dict_types(obj):
+    if type(obj) == dict:
+        for key in obj:
+            obj[key] = get_dict_types(obj[key])
+        return obj
+    elif type(obj) == list:
+        for i, _ in enumerate(obj):
+            obj[i] = get_dict_types(obj[i])
+        return obj
+    else:
+        return type(obj)
+
+def test_no_numpy_types():
+    sample = get_sample_file()
+    sample_sorted = sortvalues(deepcopy(sample), 'UTC')
+    sort_values = [True, False]
+    encoding_sizes = [16, 64, 91]
+    for k in sort_values:
+        for s in encoding_sizes:
+            for z in [True, False]:
+                if k == True:
+                    encoded = JSONEncoder.encode_json(deepcopy(sample), ts_key = 'UTC', ts_value = 'Value', sort_values = k, encoding_size = s, gzip=z)
+                    decoded = JSONEncoder.decode_json(encoded, gzip=z)
+                    assert sample_sorted == decoded
+                    assert check_numpy_types(decoded) == False
+                else:
+                    encoded = JSONEncoder.encode_json(deepcopy(sample), ts_key = 'UTC', ts_value = 'Value', sort_values = k, encoding_size = s, gzip=z)
+                    decoded = JSONEncoder.decode_json(encoded, gzip=z)
+                    try:
+                        assert sample == decoded
+                    except AssertionError:
+                        print(encoded)
+                        raise
+                    assert check_numpy_types(decoded) == False
+
+def test_save_best_encoding():
+    encoded = JSONEncoder.encode_json(get_sample_file(), ts_key = "UTC", ts_value = "Value", sort_values = True, encoding_size=64, gzip=True)
+    with open ("./tests/encoded.gzip", "wb") as ofile:
+        ofile.write(encoded)
+    encoded = JSONEncoder.encode_json(get_sample_file(), ts_key = "UTC", ts_value = "Value", sort_values = True, encoding_size=64, gzip=False)
+    with open ("./tests/encoded.json", "w") as ofile:
+        ofile.write(json.dumps(encoded, cls=NumpyEncoder))
+    with open ("./tests/encoded.gzip", "rb") as ifile:
+        bytes = ifile.read()
+        decoded = JSONEncoder.decode_json(bytes, gzip=True)
+        assert decoded == sortvalues(get_sample_file(), 'UTC')
+
+def sortvalues(json, time_key):
+    if type(json) == dict:
+        for k in json:
+            json[k] = sortvalues(json[k], time_key)
+        return json
+    elif type(json) == list:
+        if type(json[0]) == dict:
+            if time_key in json[0]:
+                json.sort(key = lambda x: x[time_key])
+                return json
+
+        for i, k in enumerate(json):
+            json[i] = sortvalues(json[i], time_key)
+        return json
+    else:
+        return json
+
+def test_static_value_zero():
     sample = get_sample()
+    for x, y in enumerate(sample):
+        if y == "Values":
+            for i, packet in enumerate(sample[y]):
+                sample[y][i]["Value"] = 0.0
+    encoded = JSONEncoder.encode_json(sample, ts_key="UTC", ts_value="Value", sort_values=True, encoding_size=64)
+    assert "data" not in encoded["Values"]
+    assert "static" in encoded["Values"]
 
-    from copy import deepcopy
-    sorted_test = deepcopy(sample['Values'])
-    unsorted_test = deepcopy(sample['Values'])
-
-    sorted_test.sort(key = lambda x: x['UTC'])
-    tse = TimeSeriesEncoder(timeseries = sorted_test)
-    encoding = tse.encode(sorted_test)
-    decoding = tse.decode(encoding)
-    for i, k in enumerate(sorted_test):
-        assert k == decoding[i]
-
-    sample['Values'] = encoding
-
-    tse = TimeSeriesEncoder(timeseries = unsorted_test)
-    encoding = tse.encode(unsorted_test)
-    decoding = tse.decode(encoding)
-    for i, k in enumerate(unsorted_test):
-        assert k == decoding[i]
-
-    sample['Values'] = encoding
-
-def test_base_16():
+def test_static_value_nonzero():
     sample = get_sample()
+    for x, y in enumerate(sample):
+        if y == "Values":
+            for i, packet in enumerate(sample[y]):
+                sample[y][i]["Value"] = 400.0
+    encoded = JSONEncoder.encode_json(sample, ts_key="UTC", ts_value="Value", sort_values=True, encoding_size=64)
+    assert "data" not in encoded["Values"]
+    assert "static" in encoded["Values"]
 
-    from copy import deepcopy
-    sorted_test = deepcopy(sample['Values'])
-    unsorted_test = deepcopy(sample['Values'])
-
-    sorted_test.sort(key = lambda x: x['UTC'])
-    tse = TimeSeriesEncoder(timeseries = sorted_test, encoding_size = 16)
-    encoding = tse.encode(sorted_test)
-    decoding = tse.decode(encoding)
-    for i, k in enumerate(sorted_test):
-        assert k == decoding[i]
-
-    sample['Values'] = encoding
-
-    tse = TimeSeriesEncoder(timeseries = unsorted_test, encoding_size = 16)
-    encoding = tse.encode(unsorted_test)
-    decoding = tse.decode(encoding)
-    for i, k in enumerate(unsorted_test):
-        assert k == decoding[i]
-
-    sample['Values'] = encoding
-
-
-def test_base_91():
+def test_static_value_neg_nonzero():
     sample = get_sample()
+    for x, y in enumerate(sample):
+        if y == "Values":
+            for i, packet in enumerate(sample[y]):
+                sample[y][i]["Value"] = -400.0
+    encoded = JSONEncoder.encode_json(sample, ts_key="UTC", ts_value="Value", sort_values=True, encoding_size=64)
+    assert "data" not in encoded["Values"]
+    assert "static" in encoded["Values"]
 
-    sorted_test = deepcopy(sample['Values'])
-    unsorted_test = deepcopy(sample['Values'])
 
-    sorted_test.sort(key = lambda x: x['UTC'])
-    tse = TimeSeriesEncoder(timeseries = sorted_test, encoding_size = 91)
-    encoding = tse.encode(sorted_test)
-    decoding = tse.decode(encoding)
-    for i, k in enumerate(sorted_test):
-        assert k == decoding[i]
 
-    tse = TimeSeriesEncoder(timeseries = unsorted_test, encoding_size = 91)
-    encoding = tse.encode(unsorted_test)
-    decoding = tse.decode(encoding)
-    for i, k in enumerate(unsorted_test):
-        assert k == decoding[i]
+
+def get_encoded_sample_unsorted_base91():
+    import json
+    return json.loads('''{
+    "AttributeName":"relative_humidity_100m:p",
+    "AttributeUnitOfMeasure":"%",
+    "AttributeDescription":"relative humidity at 100m [%]",
+    "AttributeDataType":"Numeric",
+    "Values":{
+        "encoder":"TimeSeriesEncoder",
+        "start":1618192800.0,
+        "signed":false,
+        "ts_key":"UTC",
+        "ts_value":"Value",
+        "encoding_depth":2,
+        "encoding_size":91,
+        "float_precision":1,
+        "time_encoding_depth":3,
+        "data":"0008M0dp860=B7`A=15}BRq6pB%C7DCF_7#CtN7!D3.7_DhY7_D@^6`EVj6JE*55jFJu5mFxG5pG7%5sGlR5{G`<6XHZc6)H.|6,INn6;I_96>JBy6!JpK6mJ~*6V1R-7.1%M7_2F,7D2tX6u33]6A3hi5#3[45U4Vt4`4*F4x5J$4V5xQ4467;4j6lb4{6`{5f7Zm5v7/85.8Nx608_J5+9B)5q9pU5V9~?5nAdf5&KdV6QK<@6MLRg6HL%26DMFr68MtD64N3!5;NhO5yN@/5hOVZ5RO)`5CPJk4{Px652Q7v58QlH5DQ`&5JRZS5PR.=5VSNd5iS-~5wTBo5*TpA5^T~z68UdL6MU<+6LVRW6LV$[6LWFh6LWt36LX3s6KXhE69X@#5|YVP5;Y):5$ZJa5tZw}5ia7l5xal75/a`w5~bZI6Eb.(6UcNT6kc->6:dBe7Gdp07ld~p7<edB8Ie<-8ofRM8uf$,8-gFX8&gs]8.h3i8>hh48^h@t8iiVF84i)$7tjJQ7Hjw;6)k7b6Xkk{6lk`m6-lZ86;l.x70mNJ7Fm-)7UnBU7,no?8Pn~f8(od19Mo<q9$pRCAJp$_ASqFNAbqs.Ajr3YAsrg^A-r@jA)sV5Afs)uACtJG9.tw%9ju7R9Huk<8=u`c8pvY|8Ov.n7}wN97xw-y7WxBK74xo*7Gx~V7Tyc@7fy<g7rzR27#z$r7;"
+    }
+}''')
+
+def get_sample_file():
+    import json
+    with open('./tests/sample.json', 'r') as ifile:
+        return json.load(ifile)
 
 def get_sample():
     import json

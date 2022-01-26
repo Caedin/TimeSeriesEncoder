@@ -20,6 +20,15 @@ decoded = TimeSeriesEncoder.decode_json(encoded)
 
 The encoder will encode all time series it finds in the json. Each will get their own encoding that is optimal for the data sparsity and values. Sorting the data before encoding can improve compression. If you'd like the encoder to sort for you, you can include sort_values = True on the encode_json call. This will sort each time series by the timeseries key before encoding. This allows smaller compression if the data is regular by avoiding directly encoding the timeoffsets, and instead only encodes the data.
 
+# Updates
+
+## 0.2.0 
+
+    - Released a csv module that allows encoding of CSV time series files, it is accessible on CSVEncoder.
+    - Migrated JSON function from TimeSeriesEncoder to JSONEncoder, which extends TimeSeriesEncoder
+    - Fixed a few bugs, added more tests
+
+
 # Tests
 To run tests call pytests on the tests folder from the base package folder.
 ```
