@@ -98,6 +98,7 @@ The programs gzipped, encoded file is just 8KB. This is 1/3rd the size of the re
 
 # Data
 ## CSVEncoder: Example Output
+File Size 800KB -> 61KB encoded -> 28KB encoded & compressed
 ```json
 {
 	"encoding_size": 64,
@@ -306,6 +307,7 @@ UTC,Attribute,AverageNumericValue,AsOfDateUTC,ForecastHorizonHour
 .....
 ```
 ## JSONEncoder: Example Output
+File Size 288KB -> 26KB encoded -> 8KB encoded and compressed
 ```json
 {
 	"Request": {
