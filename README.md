@@ -1,4 +1,4 @@
-A class for encoding timeseries data in JSON into an embedded base 16, base 64 or base 91 encoding.
+A module for encoding timeseries data, with helper functions for parsing JSON and CSV files into smaller sizes for caching and transmitting through APIs.
 
 # Installation
 ```
@@ -6,19 +6,34 @@ pip install timeseriesencoder
 ```
 
 # Use
+## JSON
 To use pass any json into TimeSeriesEncoder.encode_json(data, ts_key, ts_value) where ts_key and ts_value are the timestamp key and the value key in the json.
 
 ```python
 from timeseriesencoder import *
-encoded = TimeSeriesEncoder.encode_json(myJson, ts_key='UTC', ts_value='Value')
+encoded = JSONEncoder.encode_json(myJson, ts_key='UTC', ts_value='Value')
 ```
 
 To decode you can apply the reverse:
 ```python
-decoded = TimeSeriesEncoder.decode_json(encoded)
+decoded = JSONEncoder.decode_json(encoded)
 ```
 
-The encoder will encode all time series it finds in the json. Each will get their own encoding that is optimal for the data sparsity and values. Sorting the data before encoding can improve compression. If you'd like the encoder to sort for you, you can include sort_values = True on the encode_json call. This will sort each time series by the timeseries key before encoding. This allows smaller compression if the data is regular by avoiding directly encoding the timeoffsets, and instead only encodes the data.
+The encoder will encode all time series it finds in the json or csv file. Each will get their own encoding that is optimal for the data sparsity and values. Sorting the data before encoding can improve compression. If you'd like the encoder to sort for you, you can include sort_values = True on the encode_json call. This will sort each time series by the timeseries key before encoding.
+
+## CSV
+```python
+from timeseriesencoder import *
+csv = get_csv_sample()
+encoded = CSVEncoder.encode_csv(csv, time_column="UTC", key_columns=["Attribute"])
+```
+
+To decode you can apply the reverse:
+```python
+decoded = CSVEncoder.decode_csv(encoded)
+```
+
+Additionally, non time series data will be encoded in CSV files as able. Static columns will be compressed, and string value columns will be replaced with encoded lookups if it saves space in the encoded file size. 
 
 # Updates
 
