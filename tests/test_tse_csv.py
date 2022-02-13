@@ -26,12 +26,13 @@ def test_encode_test():
 def test_decode_csv():
     csv = get_csv_sample()
     encoded = CSVEncoder.encode_csv(csv, time_column="UTC", key_columns=["Attribute"])
+    #print(encoded)
     decoded = CSVEncoder.decode_csv(encoded)
     # print(decoded)
 
 def test_decode_word_size():
     csv = get_csv_sample()
-    encoded = CSVEncoder.encode_csv(csv, time_column="UTC", key_columns=["Attribute"])
+    encoded = CSVEncoder.encode_csv(csv, time_column="UTC", key_columns=["Attribute"], functional_compression=True)
     json_data = json.loads(encoded)
     enc = CSVEncoder()
     ws = enc.decode_calculate_token_size(json_data)

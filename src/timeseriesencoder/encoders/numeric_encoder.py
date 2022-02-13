@@ -102,7 +102,7 @@ class NumericEncoder:
         for i, idx in enumerate(self.encoding_table):
             self.decoding_table[idx] = i
 
-    def encode(self, numeric_data):
+    def encode(self, numeric_data, joined=True):
         vector = np.copy(numeric_data)
 
         if self.numeric_type == 'float':
@@ -110,21 +110,32 @@ class NumericEncoder:
 
         if self.signed:
             vector = vector + np.float64(self.get_max_state())
-        
+
         if (np.min(vector) < 0):
             print(vector)
             raise AssertionError("Invalid encoding, encoding algorithm only works for positive numbers")
-
-        vector = np.rint(vector).astype(np.uint64)
+        if np.max(vector) < 18446744073709551615:
+            vector = np.rint(vector).astype(np.uint64)
+        else:
+            # Slower, but necessary for extremely large encodings
+            vector = np.rint(vector).astype(object)
         encoded_bytes = np.zeros((vector.shape[0], self.encoding_depth), dtype=np.uint8)
         for i in range(self.encoding_depth):
             place_value = (self.encoding_size ** (self.encoding_depth - i - 1))
             encoded_bytes[:, i][vector >= place_value] = np.floor_divide(vector[vector >= place_value], place_value)
             vector[vector >= place_value] = vector[vector >= place_value] % place_value
-        codes = np.vectorize(self.encoding_table.item)(encoded_bytes.astype(np.uint8))
 
-        encoded = np.vectorize(chr)(codes.flatten())
-        return ''.join(encoded)
+        offsets = self.encoding_table - np.arange(0, len(self.encoding_table), 1)
+        new_bytes = np.copy(encoded_bytes)
+        for i, o in enumerate(offsets):
+            new_bytes[encoded_bytes == i] = encoded_bytes[encoded_bytes == i] + o 
+        codes = new_bytes.view('c').view(f'S{self.encoding_depth}').astype('U').ravel()
+        tokenized = codes.tolist()
+        
+        if joined == True:
+            return ''.join(tokenized)
+        else:
+            return tokenized
 
     def decode(self, string):
         vector = np.frombuffer(string.encode('utf-8'), dtype=f'S1').reshape(int(len(string) / self.encoding_depth), self.encoding_depth)

@@ -14,6 +14,8 @@ from numpyencoder import NumpyEncoder
 
 __all__ = ['TimeSeriesEncoder', 'JSONEncoder', 'CSVEncoder']
 
+MAX_FLOATING_PRECISION = 18
+
 class EncoderHelpers:
     @staticmethod
     def precision_and_scale_np(x, max_magnitude):
@@ -49,13 +51,13 @@ class EncoderHelpers:
 
     @staticmethod
     def calculate_bit_depth(values, encoding_size):
-        longest_input_length = np.max(np.vectorize(len)(values.astype(np.str_)))
-        maximum_precision = EncoderHelpers.precision_and_scale_np(values, longest_input_length)
-
         max_value = np.max(values)
         min_value = np.min(values)
-
         max_value = max(abs(max_value), abs(min_value))
+
+        longest_input_length = np.log10(max_value).astype(int) + 1
+        maximum_precision = min(EncoderHelpers.precision_and_scale_np(values, longest_input_length), MAX_FLOATING_PRECISION)
+
         if maximum_precision != 0:
             numeric_type = "float"
             max_value *= 10 ** maximum_precision
@@ -79,8 +81,7 @@ class EncoderHelpers:
         num_vals = len(values)
         encoding_depth, max_prec, num_type, signed = EncoderHelpers.calculate_bit_depth(np.arange(1, num_vals+1), encoding_size=encoding_size)
         encoder = NumericEncoder(numeric_type=num_type, signed=signed, float_precision=max_prec, encoding_depth=encoding_depth, encoding_size=encoding_size)
-        encoded = encoder.encode(np.arange(0, num_vals))
-        encoded_states = [encoded[i:i+encoding_depth] for i in range(0, len(encoded), encoding_depth)]
+        encoded_states = encoder.encode(np.arange(0, num_vals), joined=False)
         lookup = {}
         for i, s in enumerate(values):
             lookup[s] = encoded_states[i]
@@ -426,56 +427,54 @@ class CSVEncoder(TimeSeriesEncoder):
             try:
                 float(df[col][0])
                 deci_count = len(df[col][0].split('.')[1])
-                self.value_columns[col]["format"] = f'.{deci_count}f'
+                self.value_columns[col]["format"] = f'.{min(deci_count, MAX_FLOATING_PRECISION)}f'
             except:
                 continue
             
 
     def encode_time(self, df, time_column):
-
-        times = [x.timestamp() for x in np.vectorize(ciso8601.parse_datetime)(df[time_column].values)]
+        times = pd.to_datetime(df[time_column]).astype(int) / 10**9
         self.times = times
-        self._set_time_params(col_name=time_column, start=min(times))
-        gaps = np.insert(np.diff(times), 0, 0).astype(np.int64)
+        self._set_time_params(col_name=time_column, start=times.min())
+        gaps = np.insert(np.diff(times.to_numpy()), 0, 0).astype(np.int64)
 
         # Calculate encoder params
         encoding_depth, max_prec, num_type, signed = EncoderHelpers.calculate_bit_depth(gaps, encoding_size=self.encoding_size)
+
         # Do direct encoding
         encoder = NumericEncoder(numeric_type=num_type, signed=signed, float_precision=max_prec, encoding_depth=encoding_depth, encoding_size=self.encoding_size)
-        encoded = encoder.encode(gaps)
         self._set_time_params(encoder=encoder)
-        words = [encoded[i:i+encoding_depth] for i in range(0, len(encoded), encoding_depth)]
+        words = encoder.encode(gaps, joined=False)
 
         # Decided if we encode the values directly, or use a lookup table
         states = set(words)
         num_states = len(states)
         str_len_states = len(str(states))
         lookup_bit_depth = EncoderHelpers._calculate_bit_depth(num_states, self.encoding_size)
-
-        if lookup_bit_depth * len(words) + str_len_states < len(encoded):
+        if lookup_bit_depth * len(words) + str_len_states < len(words) * encoding_depth:
             # Do lookup table
-            lookup, encoding_depth = EncoderHelpers.create_lookup_table(words)
-            encoded = ''
-            for i in words:
-                encoded += lookup[i]
+            lookup, encoding_depth = EncoderHelpers.create_lookup_table(states)
+            encoded = list(map(lookup.get, words))
             self._set_time_params(lookup=lookup)
-            words = [encoded[i:i+encoding_depth] for i in range(0, len(encoded), encoding_depth)]
-
+            words = encoded
         return np.asarray(words).reshape(-1, 1)
     
     def encode_keys(self, df, key_columns):
         #Build unique aggregate key
         df = df[key_columns]
-        aggregate_keys = df[key_columns].astype(str).agg('|'.join, axis=1)
+        aggregate_keys = None
+        for c in df.columns:
+            if aggregate_keys is None:
+                aggregate_keys = df[c]
+            else:
+                aggregate_keys += "|" + df[c]
 
         lookup, encoding_depth = EncoderHelpers.create_lookup_table(aggregate_keys, self.encoding_size)
         self._set_key_params(col_names=key_columns, lookup=lookup)
-        encoded = ''
-        for i in aggregate_keys:
-            encoded += lookup[i]
-
-        words = [encoded[i:i+encoding_depth] for i in range(0, len(encoded), encoding_depth)]
-        return np.asarray(words).reshape(-1, 1)
+        encoded = [0] * len(aggregate_keys)
+        for i, v in enumerate(aggregate_keys):
+            encoded[i] = lookup[v]
+        return np.asarray(encoded).reshape(-1, 1)
     
     def encode_value(self, df, value_column):
         vals = df[value_column].values
@@ -485,20 +484,20 @@ class CSVEncoder(TimeSeriesEncoder):
            return
         
         if vals.dtype != object:
-            # Check functional column
-            x_ = PolynomialFeatures(degree=1, include_bias=True).fit_transform(np.asarray(self.times).reshape(-1, 1))
-            model = LinearRegression(fit_intercept=False).fit(x_, vals)
-            if model.score(x_, vals) == 1.0:
-                self._set_functional_column(column_name=value_column, model=model)
-                return
+            if self.functional_compression == True:
+                # Check functional column
+                x_ = PolynomialFeatures(degree=1, include_bias=True).fit_transform(np.asarray(self.times).reshape(-1, 1))
+                model = LinearRegression(fit_intercept=False).fit(x_, vals)
+                if model.score(x_, vals) == 1.0:
+                    self._set_functional_column(column_name=value_column, model=model)
+                    return
         
             # Calculate encoder params
             encoding_depth, max_prec, num_type, signed = EncoderHelpers.calculate_bit_depth(vals, encoding_size=self.encoding_size)
             # Do direct encoding
             encoder = NumericEncoder(numeric_type=num_type, signed=signed, float_precision=max_prec, encoding_depth=encoding_depth, encoding_size=self.encoding_size)
-            encoded = encoder.encode(vals)
+            words = encoder.encode(vals, joined=False)
             self._set_encoded_column(column_name=value_column, encoder=encoder)
-            words = [encoded[i:i+encoding_depth] for i in range(0, len(encoded), encoding_depth)]
         else:
             words = vals
             encoded = ''.join(vals)
@@ -508,28 +507,27 @@ class CSVEncoder(TimeSeriesEncoder):
         num_states = len(states)
         str_len_states = len(str(states))
         lookup_bit_depth = EncoderHelpers._calculate_bit_depth(num_states, self.encoding_size)
-        if lookup_bit_depth * len(words) + str_len_states < len(encoded):
+        if lookup_bit_depth * len(words) + str_len_states < len(words) * encoding_depth:
             # Do lookup table
-            lookup, encoding_depth = EncoderHelpers.create_lookup_table(words)
-            encoded = ''
-            for i in words:
-                encoded += lookup[i]
-            self._set_lookup_column(column_name=value_column, lookup=lookup)
-            words = [encoded[i:i+encoding_depth] for i in range(0, len(encoded), encoding_depth)]
-        
+            lookup, encoding_depth = EncoderHelpers.create_lookup_table(states)
+            encoded = list(map(lookup.get, words))
+            self._set_time_params(lookup=lookup)
+            words = encoded
         return np.asarray(words).reshape(-1, 1)
 
     @staticmethod
-    def encode_csv(csv, time_column, key_columns, sort_values = True, encoding_size = 64, gzip=False):
+    def encode_csv(csv, time_column, key_columns, sort_values = True, encoding_size = 64, gzip=False, functional_compression=False):
         df = pd.read_csv(StringIO(csv))
+        
         if sort_values:
             df = df.sort_values(time_column, ascending=True)
 
-        encoder = CSVEncoder(encoding_size=encoding_size)
+        encoder = CSVEncoder(encoding_size=encoding_size, functional_compression=functional_compression)
         encoder.columns = list(df.columns)
 
         ndf = pd.DataFrame(encoder.encode_time(df, time_column), columns=[time_column])
         ndf["keys"] = encoder.encode_keys(df, key_columns)
+        
         tscols = set(df.columns) - set([time_column] + key_columns)
         for col in tscols:
             encoded = encoder.encode_value(df, value_column=col)
@@ -538,10 +536,14 @@ class CSVEncoder(TimeSeriesEncoder):
                 ndf[col] = encoded
         
         encoder._set_value_column_fmt(csv)
-
         packet = encoder.__dict__
         del packet["times"]
-        data = ndf.astype(str).agg(''.join, axis=1)
+        data = None
+        for c in ndf.columns:
+            if data is None:
+                data = ndf[c]
+            else:
+                data += ndf[c]
         packet["data"] = ''.join(data)
         encoded = json.dumps(packet)
         if gzip:
@@ -638,6 +640,7 @@ class CSVEncoder(TimeSeriesEncoder):
                     tokens = [x[1] for x in tokens]
                 elif 'encoder' in col_json:
                     encoder = NumericEncoder.deserialize(col_json["encoder"])
+                    token_size = encoder.encoding_depth
                     tokens = [(x[:token_size], x[token_size:]) for x in tokens]
                     col_tokens = encoder.decode(''.join([x[0] for x in tokens]))
                     df[col] = col_tokens
@@ -678,11 +681,12 @@ class CSVEncoder(TimeSeriesEncoder):
         ndf = ndf[json_data["columns"]]
         return ndf.to_csv(index=False)
 
-    def __init__(self, encoding_size=64):
+    def __init__(self, encoding_size=64, functional_compression=False):
         self.encoding_size = encoding_size
         self.value_columns = {}
         self.time = {}
         self.keys = {}
+        self.functional_compression = functional_compression
 
 
 
