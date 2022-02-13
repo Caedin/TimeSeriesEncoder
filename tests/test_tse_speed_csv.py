@@ -1,4 +1,5 @@
 import pytest
+from sqlalchemy import false
 from timeseriesencoder  import TimeSeriesEncoder, JSONEncoder, CSVEncoder
 from copy import deepcopy
 from numpyencoder import NumpyEncoder
@@ -44,12 +45,13 @@ def test_64bit_speed():
 
 if __name__ == '__main__':
     import cProfile, pstats
+    e = CSVEncoder.encode_csv(sample, time_column = 'date', key_columns=["ent_code", "tag"], sort_values = False, encoding_size = 64, gzip=False)
     with cProfile.Profile() as pr:
-        CSVEncoder.encode_csv(sample, time_column = 'date', key_columns=["ent_code", "tag"], sort_values = False, encoding_size = 64, gzip=True)
-
+        d = CSVEncoder.decode_csv(e)
     from pstats import SortKey
     ps = pstats.Stats(pr).sort_stats(SortKey.TIME)
     ps.print_stats(0.05)
+    
 
 
 def test_get_speed():

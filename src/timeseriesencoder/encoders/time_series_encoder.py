@@ -14,7 +14,7 @@ from numpyencoder import NumpyEncoder
 
 __all__ = ['TimeSeriesEncoder', 'JSONEncoder', 'CSVEncoder']
 
-MAX_FLOATING_PRECISION = 18
+MAX_FLOATING_PRECISION = 6
 
 class EncoderHelpers:
     @staticmethod
@@ -55,8 +55,13 @@ class EncoderHelpers:
         min_value = np.min(values)
         max_value = max(abs(max_value), abs(min_value))
 
-        longest_input_length = np.log10(max_value).astype(int) + 1
-        maximum_precision = min(EncoderHelpers.precision_and_scale_np(values, longest_input_length), MAX_FLOATING_PRECISION)
+        vals = np.copy(values)
+        maximum_precision = 0
+        while np.all(np.rint(vals) == vals) == False:
+            maximum_precision += 1
+            if maximum_precision >= MAX_FLOATING_PRECISION:
+                break
+            vals *= 10
 
         if maximum_precision != 0:
             numeric_type = "float"
@@ -309,12 +314,11 @@ class JSONEncoder(TimeSeriesEncoder):
             
     @staticmethod
     def decode_json(json_data, inplace=False, gzip=False):
+        if inplace == False:
+            json_data = copy.copy(json_data)
         if gzip:
             json_data = EncoderHelpers.gunzip_bytes_obj(json_data)
             json_data = json.loads(json_data)
-
-        if inplace == False and gzip == False:
-            json_data = copy.copy(json_data)
         decoded = JSONEncoder._decode_json(json_data)
         return decoded
 
@@ -511,7 +515,7 @@ class CSVEncoder(TimeSeriesEncoder):
             # Do lookup table
             lookup, encoding_depth = EncoderHelpers.create_lookup_table(states)
             encoded = list(map(lookup.get, words))
-            self._set_time_params(lookup=lookup)
+            self._set_lookup_column(column_name=value_column, lookup=lookup)
             words = encoded
         return np.asarray(words).reshape(-1, 1)
 
@@ -587,16 +591,15 @@ class CSVEncoder(TimeSeriesEncoder):
         if 'lookup' in time_vals:
             lookup = time_vals["lookup"]
             lookup =  {v: k for k, v in lookup.items()}
-            tokens = np.vectorize(lookup.get)(tokens)
+            tokens = list(map(lookup.get, tokens))
 
         if 'encoder' in time_vals:
             encoder = NumericEncoder.deserialize(time_vals["encoder"])
             tokens = encoder.decode(''.join(tokens))
-        
         cumulative_time = np.cumsum(np.asarray(tokens))
         time = cumulative_time + start
         self.time = time
-        fmttimes = np.vectorize(datetime.datetime.utcfromtimestamp)(time)
+        fmttimes = list(map(datetime.datetime.utcfromtimestamp, time))
         fmttimes = ['%02d-%02d-%02dT%02d:%02d:%02dZ' % (x.year, x.month, x.day, x.hour, x.minute, x.second) for x in fmttimes]
         return fmttimes
 
@@ -604,10 +607,8 @@ class CSVEncoder(TimeSeriesEncoder):
     def decode_key(self, json_data, tokens):
         columns = json_data["keys"]["columns"]
         lookup = json_data["keys"]["lookup"]
-        lookup =  {v: k for k, v in lookup.items()}
-        new_tokens = np.vectorize(lookup.get)(tokens)
-        new_tokens = np.char.split(new_tokens, sep="|")
-        new_tokens = np.array([x for x in new_tokens])
+        lookup =  {v: k.split('|') for k, v in lookup.items()}
+        new_tokens = list(map(lookup.get, tokens))
         key_data = pd.DataFrame(new_tokens, columns=columns)
         return key_data
 
@@ -615,6 +616,14 @@ class CSVEncoder(TimeSeriesEncoder):
         value_columns = json_data["value_columns"]
         df = pd.DataFrame(np.ones((len(tokens), len(json_data["value_columns"]))))
         df.columns = [col for col in value_columns]
+        def parse_col_tokens(col_bytes, tokens):
+            col_vals = [0] * len(tokens)
+            new_tokens = [0] * len(tokens)
+            for i, t in enumerate(tokens):
+                col_vals[i] = t[:col_bytes]
+                new_tokens[i] = t[col_bytes:]
+            return col_vals, new_tokens
+
         for col in value_columns:
             if "function" in value_columns[col]:
                 coefs = value_columns[col]["function"]
@@ -631,34 +640,30 @@ class CSVEncoder(TimeSeriesEncoder):
                     lookup = col_json["lookup"]
                     lookup =  {v: k for k, v in lookup.items()}
                     token_size = len(list(lookup.keys())[0])
-                    tokens = [(x[:token_size], x[token_size:]) for x in tokens]
-                    col_tokens = np.vectorize(lookup.get)([x[0] for x in tokens])
+                    col_vals, tokens = parse_col_tokens(token_size, tokens)
+                    col_tokens = list(map(lookup.get, col_vals))
                     if 'encoder' in col_json:
                         encoder = NumericEncoder.deserialize(col_json["encoder"])
                         col_tokens = encoder.decode(''.join(col_tokens))
                     df[col] = col_tokens
-                    tokens = [x[1] for x in tokens]
                 elif 'encoder' in col_json:
                     encoder = NumericEncoder.deserialize(col_json["encoder"])
                     token_size = encoder.encoding_depth
-                    tokens = [(x[:token_size], x[token_size:]) for x in tokens]
-                    col_tokens = encoder.decode(''.join([x[0] for x in tokens]))
+                    col_vals, tokens = parse_col_tokens(token_size, tokens)
+                    col_tokens = encoder.decode(''.join(col_vals))
                     df[col] = col_tokens
-                    tokens = [x[1] for x in tokens]
 
             if "format" in value_columns[col]:
                 fmt = value_columns[col]["format"]
-                df[col] = df[col].apply(lambda x: f"{x:{fmt}}")
-            
-
+                df[col] = df[col].map(f"{{:{fmt}}}".format)
         return df
 
     def tokenize(self, data, time_size, key_size, value_size):
         num_tokens = len(data) / (time_size + key_size + value_size)
         num_tokens = int(num_tokens)
-        times = np.zeros(num_tokens).astype(np.str_)
-        keys = np.zeros(num_tokens).astype(np.str_)
-        values = np.zeros(num_tokens).astype(np.str_)
+        times = [0] * num_tokens
+        keys = [0] * num_tokens
+        values = [0] * num_tokens
         for token, i in enumerate(range(0, len(data), (time_size + key_size + value_size))):
             times[token] = data[i:i+time_size]
             keys[token] = data[i+time_size:i+time_size+key_size]
@@ -679,7 +684,14 @@ class CSVEncoder(TimeSeriesEncoder):
         ndf = ndf.join(decoder.decode_key(json_data, keys))
         ndf = ndf.join(decoder.decode_values(json_data, values))
         ndf = ndf[json_data["columns"]]
-        return ndf.to_csv(index=False)
+
+        rslt = None
+        for c in ndf.columns:
+            if rslt is None:
+                rslt = ndf[c]
+            else:
+                rslt += ',' + ndf[c]
+        return ','.join(ndf.columns) + '\n' + '\n'.join(rslt.values)
 
     def __init__(self, encoding_size=64, functional_compression=False):
         self.encoding_size = encoding_size

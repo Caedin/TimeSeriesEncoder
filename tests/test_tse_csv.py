@@ -26,7 +26,7 @@ def test_encode_test():
 def test_decode_csv():
     csv = get_csv_sample()
     encoded = CSVEncoder.encode_csv(csv, time_column="UTC", key_columns=["Attribute"])
-    #print(encoded)
+    # print(encoded)
     decoded = CSVEncoder.decode_csv(encoded)
     # print(decoded)
 

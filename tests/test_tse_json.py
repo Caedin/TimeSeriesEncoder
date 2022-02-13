@@ -1,3 +1,4 @@
+import os
 from copy import deepcopy
 from numpyencoder import NumpyEncoder
 import json
@@ -67,29 +68,39 @@ def test_encode_decode_json_all_sizes_gzip():
 
 def test_sizes_gzip():
     sample = get_sample_file()
+    sample_size = os.path.getsize('./tests/sample.json')
     sample_sorted = sortvalues(deepcopy(sample), 'UTC')
     sort_values = [True, False]
     encoding_sizes = [16, 64, 91]
-    sizes = { "Raw" : get_size(sample), "Raw Sorted" : get_size(sample_sorted)}
+    sizes = { "Raw" : sample_size }
     for k in sort_values:
         for s in encoding_sizes:
             for z in [True, False]:
+                if z == True:
+                    fmt = 'wb'
+                else:
+                    fmt = 'w'
+                encoded = JSONEncoder.encode_json(deepcopy(sample), ts_key = 'UTC', ts_value = 'Value', sort_values = k, encoding_size = s, gzip=z)
+                decoded = JSONEncoder.decode_json(deepcopy(encoded), gzip=z)
+
+                with open('./tests/sztst.json', fmt) as ofile:
+                    if fmt == 'w':
+                        encoded = json.dumps(encoded)
+                    ofile.write(encoded)
+                size = os.path.getsize('./tests/sztst.json')
+                os.remove('./tests/sztst.json')
+
+                sizes[f"Sorted: {k}, Encoding_Size: {s}, Gzip: {z}"] = size
                 if k == True:
-                    encoded = JSONEncoder.encode_json(deepcopy(sample), ts_key = 'UTC', ts_value = 'Value', sort_values = k, encoding_size = s, gzip=z)
-                    decoded = JSONEncoder.decode_json(encoded, gzip=z)
-                    sizes[f"Sorted: {k}, Encoding_Size: {s}, Gzip: {z}"] = get_size(encoded)
                     assert sample_sorted == decoded
                 else:
-                    encoded = JSONEncoder.encode_json(deepcopy(sample), ts_key = 'UTC', ts_value = 'Value', sort_values = k, encoding_size = s, gzip=z)
-                    decoded = JSONEncoder.decode_json(encoded, gzip=z)
-                    sizes[f"Sorted: {k}, Encoding_Size: {s}, Gzip: {z}"] = get_size(encoded)
                     try:
                         assert sample == decoded
                     except AssertionError:
                         print(encoded)
                         raise
     for k in sizes:
-        if k == "Raw" or k == "Raw Sorted":
+        if k == "Raw":
             continue
         assert sizes[k] < sizes["Raw"]
 
@@ -133,6 +144,7 @@ def test_no_numpy_types():
                     encoded = JSONEncoder.encode_json(deepcopy(sample), ts_key = 'UTC', ts_value = 'Value', sort_values = k, encoding_size = s, gzip=z)
                     decoded = JSONEncoder.decode_json(encoded, gzip=z)
                     assert sample_sorted == decoded
+                    print(get_dict_types(decoded))
                     assert check_numpy_types(decoded) == False
                 else:
                     encoded = JSONEncoder.encode_json(deepcopy(sample), ts_key = 'UTC', ts_value = 'Value', sort_values = k, encoding_size = s, gzip=z)

@@ -139,10 +139,15 @@ class NumericEncoder:
 
     def decode(self, string):
         vector = np.frombuffer(string.encode('utf-8'), dtype=f'S1').reshape(int(len(string) / self.encoding_depth), self.encoding_depth)
-        vector = np.vectorize(ord)(vector)
-        vector = np.vectorize(self.decoding_table.item)(vector)
-
-        for i in range(self.encoding_depth):
+        vector = vector.view(np.uint8)
+        offsets = self.decoding_table - np.arange(0, len(self.decoding_table), 1)
+        valid_offsets = set(self.encoding_table)
+        new_vector = np.copy(vector)
+        for i, o in enumerate(offsets):
+            if i in valid_offsets:
+                new_vector[vector == i] = vector[vector == i] + o 
+        vector = new_vector.astype(int)
+        for i in range(self.encoding_depth - 1):
             offset = (self.encoding_size ** (self.encoding_depth - i - 1))
             vector[:, i] = vector[:, i] * offset
         vector = np.sum(vector, axis=1)
@@ -153,6 +158,5 @@ class NumericEncoder:
 
         if self.numeric_type == 'float':
             vector =  np.divide(vector, (10 ** self.float_precision))
-
-        return [x.item() for x in vector]
+        return vector.tolist()
     
