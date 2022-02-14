@@ -39,7 +39,7 @@ Additionally, non time series data will be encoded in CSV files as able. Static 
 
 ## 0.2.4
 
-    - Improved encoding speed for CSV module by 12x, improved decode speed for CSV module by 2x.
+    - Improved encoding speed for CSV module by up to 12x, improved decode speed for CSV module by up to 3x.
     - Some performance improvements for JSON module as well that shares underlying encoder
     - Bug fixes, more tests
 
