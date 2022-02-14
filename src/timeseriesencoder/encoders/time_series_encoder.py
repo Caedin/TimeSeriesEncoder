@@ -517,7 +517,10 @@ class CSVEncoder(TimeSeriesEncoder):
         return np.asarray(words).reshape(-1, 1)
 
     @staticmethod
-    def encode_csv(csv, time_column, key_columns, sort_values = True, encoding_size = 64, gzip=False, functional_compression=False):
+    def encode_csv(csv, time_column, key_columns, sort_values = True, encoding_size = 64, gzip=False, functional_compression=True, maximum_precision=6):
+        global MAX_FLOATING_PRECISION
+        MAX_FLOATING_PRECISION = maximum_precision
+        
         df = pd.read_csv(StringIO(csv))
         df = df.dropna()
 

@@ -5,7 +5,7 @@ with open("README.md", "r", encoding="utf-8") as fh:
 
 setuptools.setup(
     name="timeseriesencoder",
-    version="0.2.3",
+    version="0.2.41",
     author="Keith Dyer",
     author_email="kilaxen@gmail.com",
     description=" package for encoding and decoding time series in JSON files into embedded base 16, 64, or 91 encodings.",

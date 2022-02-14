@@ -149,7 +149,11 @@ class NumericEncoder:
         vector = new_vector.astype(int)
         for i in range(self.encoding_depth - 1):
             offset = (self.encoding_size ** (self.encoding_depth - i - 1))
-            vector[:, i] = vector[:, i] * offset
+            try:
+                vector[:, i] = vector[:, i] * offset
+            except OverflowError:
+                vector = vector.astype(object)
+                vector[:, i] = vector[:, i] * offset
         vector = np.sum(vector, axis=1)
 
         # Adjust for signage

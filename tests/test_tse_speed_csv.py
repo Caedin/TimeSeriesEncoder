@@ -51,8 +51,6 @@ if __name__ == '__main__':
     from pstats import SortKey
     ps = pstats.Stats(pr).sort_stats(SortKey.TIME)
     ps.print_stats(0.05)
-    
-
 
 def test_get_speed():
     rows = []
@@ -63,7 +61,7 @@ def test_get_speed():
                 for f in [CSVEncoder.encode_csv, CSVEncoder.decode_csv]:
                     print(f.__name__, s, k, z)
                     if encoded is None:
-                        encoded, t = evalWithTime(lambda: f(sample, time_column = 'date', key_columns=["ent_code", "tag"], encoding_size = k, gzip=z))
+                        encoded, t = evalWithTime(lambda: f(sample, time_column = 'date', key_columns=["ent_code", "tag"], encoding_size = k, gzip=z, maximum_precision=6, functional_compression=True))
                     else:
                         decoded, t = evalWithTime(lambda: f(encoded, gzip=z))
                     rows.append(pd.DataFrame([[f.__name__, s, k, z, t]]))
