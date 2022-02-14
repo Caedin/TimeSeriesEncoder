@@ -408,7 +408,7 @@ class CSVEncoder(TimeSeriesEncoder):
 
     def _set_encoded_column(self, column_name, encoder):
         if column_name in self.value_columns:
-            self.value_columns[column_name]["encoder"] = encoder
+            self.value_columns[column_name]["encoder"] = NumericEncoder.serialize(encoder)
         else:
             self.value_columns[column_name] = {
                 "encoder": NumericEncoder.serialize(encoder)
@@ -416,30 +416,25 @@ class CSVEncoder(TimeSeriesEncoder):
     
     def _set_functional_column(self, column_name, model):
         if column_name in self.value_columns:
-            self.value_columns[column_name]["function"] = model.coef_
+            self.value_columns[column_name]["function"] = [x.item() for x in model.coef_]
         else:
             self.value_columns[column_name] = {
                 "function": [x.item() for x in model.coef_]
             }
 
-    def _set_value_column_fmt(self, csv):
-        data = csv.split('\n')[0:2]
-        headers = data[0]
-        rows = data[1]
-        df = pd.DataFrame([rows.split(',')], columns=headers.split(','))
-        for col in self.value_columns:
-            try:
-                float(df[col][0])
-                deci_count = len(df[col][0].split('.')[1])
-                self.value_columns[col]["format"] = f'.{min(deci_count, MAX_FLOATING_PRECISION)}f'
-            except:
-                continue
+    def _set_value_column_fmt(self, column_name, deci_count):
+        if column_name in self.value_columns:
+            self.value_columns[column_name]["format"] = f'.{min(deci_count, MAX_FLOATING_PRECISION)}f'
+        else:
+             self.value_columns[column_name] = {
+                 "format": f'.{min(deci_count, MAX_FLOATING_PRECISION)}f'
+             }
             
 
     def encode_time(self, df, time_column):
         times = pd.to_datetime(df[time_column]).astype(int) / 10**9
         self.times = times
-        self._set_time_params(col_name=time_column, start=times.min())
+        self._set_time_params(col_name=time_column, start=times[0])
         gaps = np.insert(np.diff(times.to_numpy()), 0, 0).astype(np.int64)
 
         # Calculate encoder params
@@ -488,6 +483,10 @@ class CSVEncoder(TimeSeriesEncoder):
            return
         
         if vals.dtype != object:
+            # Calculate encoder params
+            encoding_depth, max_prec, num_type, signed = EncoderHelpers.calculate_bit_depth(vals, encoding_size=self.encoding_size)
+            self._set_value_column_fmt(value_column, max_prec)
+
             if self.functional_compression == True:
                 # Check functional column
                 x_ = PolynomialFeatures(degree=1, include_bias=True).fit_transform(np.asarray(self.times).reshape(-1, 1))
@@ -496,8 +495,6 @@ class CSVEncoder(TimeSeriesEncoder):
                     self._set_functional_column(column_name=value_column, model=model)
                     return
         
-            # Calculate encoder params
-            encoding_depth, max_prec, num_type, signed = EncoderHelpers.calculate_bit_depth(vals, encoding_size=self.encoding_size)
             # Do direct encoding
             encoder = NumericEncoder(numeric_type=num_type, signed=signed, float_precision=max_prec, encoding_depth=encoding_depth, encoding_size=self.encoding_size)
             words = encoder.encode(vals, joined=False)
@@ -522,7 +519,8 @@ class CSVEncoder(TimeSeriesEncoder):
     @staticmethod
     def encode_csv(csv, time_column, key_columns, sort_values = True, encoding_size = 64, gzip=False, functional_compression=False):
         df = pd.read_csv(StringIO(csv))
-        
+        df = df.dropna()
+
         if sort_values:
             df = df.sort_values(time_column, ascending=True)
 
@@ -539,7 +537,6 @@ class CSVEncoder(TimeSeriesEncoder):
                 # Static columns will be omit from the dataframe and added to metadata, so this can be None
                 ndf[col] = encoded
         
-        encoder._set_value_column_fmt(csv)
         packet = encoder.__dict__
         del packet["times"]
         data = None
@@ -596,6 +593,7 @@ class CSVEncoder(TimeSeriesEncoder):
         if 'encoder' in time_vals:
             encoder = NumericEncoder.deserialize(time_vals["encoder"])
             tokens = encoder.decode(''.join(tokens))
+
         cumulative_time = np.cumsum(np.asarray(tokens))
         time = cumulative_time + start
         self.time = time

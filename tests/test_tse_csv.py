@@ -101,6 +101,24 @@ def test_encode_decode_nogzip():
     decoded_hash = k.hexdigest()
     assert encoded_hash == decoded_hash
 
+def test_encode_sample2_decode_nogzip():
+    csv = get_csv_sample2()
+    encoded = CSVEncoder.encode_csv(csv, time_column="date", key_columns=["ent_code", "tag"], sort_values=False)
+    with open('./tests/test.json', 'w') as ofile:
+        ofile.write(encoded) 
+    decoded = CSVEncoder.decode_csv(encoded)
+    with open('./tests/test.csv', 'w') as ofile:
+        ofile.write(decoded) 
+        
+    m = hashlib.sha256()
+    m.update(csv.encode("utf-8"))
+    encoded_hash = m.hexdigest()
+
+    k = hashlib.sha256()
+    k.update(decoded.encode("utf-8"))
+    decoded_hash = k.hexdigest()
+    assert encoded_hash == decoded_hash
+
 def test_encode_decode_gzip():
     csv = get_csv_sample()
     encoded = CSVEncoder.encode_csv(csv, time_column="UTC", key_columns=["Attribute"], sort_values=False, gzip=True)
@@ -138,6 +156,10 @@ def get_count_of_key(obj, key):
 
 def get_csv_sample():
     with open("./tests/bebez.csv", 'r') as ifile:
+        return ifile.read()
+
+def get_csv_sample2():
+    with open("./tests/export-3.csv", 'r') as ifile:
         return ifile.read()
 
 
