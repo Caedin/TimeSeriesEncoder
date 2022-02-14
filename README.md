@@ -37,6 +37,13 @@ Additionally, non time series data will be encoded in CSV files as able. Static 
 
 # Updates
 
+## 0.2.4
+
+    - Improved encoding speed for CSV module by up to 12x, improved decode speed for CSV module by up to 3x.
+    - Some performance improvements for JSON module as well that shares underlying encoder
+    - Added functional_compression parameter to CSVEncoder.encode_csv. The default behavior is to not use functional compression, enabling it can reduce file size at the cost of longer encoding times.
+    - Bug fixes, more tests
+
 ## 0.2.0 
 
     - Released a csv module that allows encoding of CSV time series files, it is accessible on CSVEncoder.
