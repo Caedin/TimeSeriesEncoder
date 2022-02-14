@@ -144,7 +144,6 @@ def test_no_numpy_types():
                     encoded = JSONEncoder.encode_json(deepcopy(sample), ts_key = 'UTC', ts_value = 'Value', sort_values = k, encoding_size = s, gzip=z)
                     decoded = JSONEncoder.decode_json(encoded, gzip=z)
                     assert sample_sorted == decoded
-                    print(get_dict_types(decoded))
                     assert check_numpy_types(decoded) == False
                 else:
                     encoded = JSONEncoder.encode_json(deepcopy(sample), ts_key = 'UTC', ts_value = 'Value', sort_values = k, encoding_size = s, gzip=z)
