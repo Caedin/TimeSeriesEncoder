@@ -434,7 +434,7 @@ class CSVEncoder(TimeSeriesEncoder):
     def encode_time(self, df, time_column):
         times = pd.to_datetime(df[time_column]).astype(int) / 10**9
         self.times = times
-        self._set_time_params(col_name=time_column, start=times[0])
+        self._set_time_params(col_name=time_column, start=np.min(times))
         gaps = np.insert(np.diff(times.to_numpy()), 0, 0).astype(np.int64)
 
         # Calculate encoder params
