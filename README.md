@@ -37,11 +37,12 @@ Additionally, non time series data will be encoded in CSV files as able. Static 
 
 # Updates
 
-## 0.2.4
+## 0.2.41
 
     - Improved encoding speed for CSV module by up to 12x, improved decode speed for CSV module by up to 3x.
     - Some performance improvements for JSON module as well that shares underlying encoder
-    - Added functional_compression parameter to CSVEncoder.encode_csv. The default behavior is to not use functional compression, enabling it can reduce file size at the cost of longer encoding times.
+    - Added functional_compression parameter to CSVEncoder.encode_csv, the functional compression can be disabled to slightly improve encoding times when it is known in advance there will be no oportunity for functional compression
+    - Added maximum_precision parameter to CSVEncoder.encode_csv. This parameter allows you to limit the floating point precision for value columns. This can improve file size and encoding time significantly, at the cost of an approximate compression. This is often favorable when the input data's precision isn't meaningful.
     - Bug fixes, more tests
 
 ## 0.2.0 
